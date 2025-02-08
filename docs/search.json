@@ -1,0 +1,16 @@
+[
+  {
+    "objectID": "index.html",
+    "href": "index.html",
+    "title": "My STA9750 Journey: Mastering Data Analysis Tools",
+    "section": "",
+    "text": "Hello and welcome!\n\nI am Augustine and a graduate student pursuing MS in Quantitative Methods and Modeling at CUNY-Baruch College, New York with a strong interest in data-driven decision-making. My academic journey is built on a solid foundation in Economics. I have gained valuable experience as a Research Assistant in the past, where I honed my analytical and problem-solving skills.\nAs a budding Operations Research Analyst, I am eager to apply my knowledge in data analysis, quantitative modeling and optimization to solve real-world challenges. I am particularly interested in leveraging data science, machine learning and operations research techniques to drive insights in Manufacturing & Supply Chain, Energy & Utilities, Healthcare & Pharmaceuticals, Transportation & Logistics and Retail & E-Commerce.\nI am always looking for opportunities to collaborate on projects. If you’re interested in discussing ideas, sharing knowledge or working together, feel free to reach out!\n\n\nLast Updated: Saturday 02 08, 2025 at 18:38PM\n#| echo: false #| message: false #| warning: false\nif(!require(“leaflet”)){ options(repos=c(CRAN=“https://cloud.r-project.org”)) install.packages(“leaflet”) stopifnot(require(“leaflet”)) }\n\nBaruch College Coordinates\nbaruch_longitude &lt;- -73.98333 baruch_latitude &lt;- 40.75028\n\n\nCreate a leaflet map\nleaflet() |&gt; addTiles() |&gt; setView(baruch_longitude, baruch_latitude, zoom=17) |&gt; addPopup(baruch_longitude, baruch_latitude, “I am a Master’s student at Baruch College!”)"
+  },
+  {
+    "objectID": "Presentation Slides Lab2.html",
+    "href": "Presentation Slides Lab2.html",
+    "title": "Presentation",
+    "section": "",
+    "text": "if(!require(\"tidyverse\")) install.packages(\"tidyverse\")\n\nLoading required package: tidyverse\n\n\n── Attaching core tidyverse packages ──────────────────────── tidyverse 2.0.0 ──\n✔ dplyr     1.1.4     ✔ readr     2.1.5\n✔ forcats   1.0.0     ✔ stringr   1.5.1\n✔ ggplot2   3.5.1     ✔ tibble    3.2.1\n✔ lubridate 1.9.4     ✔ tidyr     1.3.1\n✔ purrr     1.0.2     \n── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──\n✖ dplyr::filter() masks stats::filter()\n✖ dplyr::lag()    masks stats::lag()\nℹ Use the conflicted package (&lt;http://conflicted.r-lib.org/&gt;) to force all conflicts to become errors\n\nlibrary(tidyverse)\ntxhousing |&gt; filter(city==\"Houston\") |&gt; \n             group_by(year) |&gt; \n             summarize(sales=sum(sales)) |&gt; \n             ggplot(aes(x=year, y=sales)) + \n                geom_line() + \n                ggtitle(\"Annual Houses Sold in Houston, TX\")\n\n\n\n\n\n\n\n\ngit config –global http.postbuffer=524288000"
+  }
+]
