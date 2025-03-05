@@ -56,8 +56,13 @@ sum(duplicated(nyc_payroll$unique_id))
 
 ```
 
-# Employee slary table for Eric L. Adams
+# Mayor Eric L. Adams Career Salary
 
+::: {.text-right}
+
+  Mayor Eric L. Adams’ career and salary history shows a clear progression that reflects his increasing responsibilities in public service. As Brooklyn Borough President, he earned $160,000 in fiscal years 2014 and 2015. In the same role, his salary increased to $179,200 between 2016 and 2021. This reflects periodic adjustments during his time in that role. In 2022, when he became Mayor of New York City, his compensation jumped to $258,750. This has been maintained until 2024. This noticeable salary increases underlines the significant difference in scope and responsibility between managing a single borough and overseeing the entire city, as the mayoral position carries greater administrative and leadership duties. Overall, the table not only tracks the numerical changes in his pay but also illustrates how his career advancement has been accompanied by a corresponding rise in compensation, aligning with the broader expectations and demands of his new role.
+
+:::
 
 ```{r}
 
@@ -78,11 +83,7 @@ arrange("Fiscal Year")
 salary_table_mayoradams
 
 ```
-::: {.text-right}
 
-  Mayor Eric L. Adams’ career and salary history shows a clear progression that reflects his increasing responsibilities in public service. As Brooklyn Borough President, he earned $160,000 in fiscal years 2014 and 2015. In the same role, his salary increased to $179,200 between 2016 and 2021. This reflects periodic adjustments during his time in that role. In 2022, when he became Mayor of New York City, his compensation jumped to $258,750. This has been maintained until 2024. This noticeable salary increases underlines the significant difference in scope and responsibility between managing a single borough and overseeing the entire city, as the mayoral position carries greater administrative and leadership duties. Overall, the table not only tracks the numerical changes in his pay but also illustrates how his career advancement has been accompanied by a corresponding rise in compensation, aligning with the broader expectations and demands of his new role.
-
-:::
 
 ```{r}
 
