@@ -1,0 +1,355 @@
+
+---
+title: "Mini-Project 01:Commission to Analyze Taxpayer Spending (CATS)"
+---
+
+Introduction
+
+::: {.text-right}
+
+  The pay structure of New York City (NYC) is important to ensuring equitable pay and workforce retention while managing the allocation of public funds efficiently. The city happens to be one of the largest municipal employers in the United States employing a total of 354,572 workers across 72 agencies in the 2023 fiscal year (NYC Government, 2023). NYC’s workforce comprises of about 94% fulltime workers and 6% part-time workers. In addition, about 58% of the workforce are female (NYC Government, 2023).The median annual base salary of fulltime workers was estimated at $83,465 excluding overtime and benefits in fiscal year 2023(NYC Government, 2023). The city is noted for spending a significant amount on overtime compensation. Transparency in salary distribution including base pay and overtime compensation is essential for fostering public trust and accountability in government spending. 
+  This paper aims to evaluate the implications of proposed policy changes that could reshape NYC’s payroll structure. By analyzing salary trends, overtime expenditures and workforce allocation this report provides data-driven insights to inform decision-making by the CATS Commissioners. The analysis uses payroll data between 2015 and 2024 from New York City Open Database. Each record includes variables such as employee agency, job title, base salary and total overtime paid at the end of the fiscal year (New York City Open Data, 2024). This dataset allows for an in-depth review of payroll distribution and overtime expenditures, helping policymakers understand where budgetary adjustments may be necessary.
+:::
+
+
+# Exploratory Data Analysis (EDA) and Initial Exploration
+
+```{r}
+#| message: false
+#| warning: false
+#| echo: false
+#Check current working directory 
+getwd()
+
+# Load necessary libraries
+library(tidyverse)
+
+#Import payroll data 
+nyc_payroll<-read_csv("C:/Users/Admin/Desktop/Baruch/Spring Classes/Basic Software Tools/STA9750-2025-SPRING/data//mp01/nyc_payroll_export.csv")
+
+#Retrieve first few columns
+head(nyc_payroll)
+
+#Retrieve last few columns
+tail(nyc_payroll)
+
+# Convert columns to proper formatting
+nyc_payroll <- nyc_payroll |> 
+  mutate( 
+    "Agency Name" = str_to_title(agency_name),
+    "Last Name" = str_to_title(last_name),
+    "First Name" = str_to_title(first_name),
+    "Work Location (Borough)" = str_to_title(work_location_borough),
+    "Title / Job Description" = str_to_title(title_description),
+    "Leave Status" = str_to_title(leave_status_as_of_june_30)
+  )
+
+#Checking for proper formatting after conversion of columns
+glimpse(nyc_payroll)
+
+#Creating unique identifiers
+nyc_payroll <- nyc_payroll |> mutate(unique_id = paste(first_name,mid_init,last_name, sep = "_" ))
+
+nyc_payroll <- nyc_payroll |> select(unique_id, everything())
+
+sum(duplicated(nyc_payroll$unique_id))
+
+```
+
+# Employee slary table for Eric L. Adams
+
+
+```{r}
+
+#| echo: true
+#| fold: true
+#| results: false
+#| code-summary: "Code"
+salary_table_mayoradams <- nyc_payroll |> 
+  filter(unique_id== "ERIC_L_ADAMS") |>
+group_by(fiscal_year, title_description, agency_name) |>
+summarize(total_salary = sum(base_salary, na.rm = TRUE), 
+          .groups = "drop")|>
+rename("Fiscal Year" = fiscal_year,
+       "Position" = title_description,
+       "Agency" = agency_name,
+       "Total Salary" = total_salary) |>
+arrange("Fiscal Year")
+salary_table_mayoradams
+
+```
+::: {.text-right}
+
+  Mayor Eric L. Adams’ career and salary history shows a clear progression that reflects his increasing responsibilities in public service. As Brooklyn Borough President, he earned $160,000 in fiscal years 2014 and 2015. In the same role, his salary increased to $179,200 between 2016 and 2021. This reflects periodic adjustments during his time in that role. In 2022, when he became Mayor of New York City, his compensation jumped to $258,750. This has been maintained until 2024. This noticeable salary increases underlines the significant difference in scope and responsibility between managing a single borough and overseeing the entire city, as the mayoral position carries greater administrative and leadership duties. Overall, the table not only tracks the numerical changes in his pay but also illustrates how his career advancement has been accompanied by a corresponding rise in compensation, aligning with the broader expectations and demands of his new role.
+
+:::
+
+```{r}
+
+#| echo: false
+#| message: false
+#| warning: false
+library(DT)
+library(scales)
+tbl_txt <- "
+Fiscal Year, Position, Agency, Total Salary
+2014,BOROUGH PRESIDENT, BOROUGH PRESIDENT-BROOKLYN,160000
+2015,BOROUGH PRESIDENT,BOROUGH PRESIDENT-BROOKLYNc,160000
+2016,BOROUGH PRESIDENT,BOROUGH PRESIDENT-BROOKLYN,179200
+2017,BOROUGH PRESIDENT,BOROUGH PRESIDENT-BROOKLYN,179200
+2018,BOROUGH PRESIDENT,BOROUGH PRESIDENT-BROOKLYN,179200
+2019,BOROUGH PRESIDENT,BOROUGH PRESIDENT-BROOKLYN,179200
+2020, BOROUGH PRESIDENT,BOROUGH PRESIDENT-BROOKLYN,179200
+2021, BOROUGH PRESIDENT,BOROUGH PRESIDENT-BROOKLYN,179200
+2022, BOROUGH PRESIDENT,BOROUGH PRESIDENT-BROOKLYN,179200
+2022, MAYOR,OFFICE OF THE MAYOR,258750
+2023,MAYOR,OFFICE OF THE MAYOR,258750
+2024,MAYOR,OFFICE OF THE MAYOR,258750"
+
+read_csv(tbl_txt) |> 
+  mutate(`Total Salary` = dollar(`Total Salary`)) |>
+  datatable(options=list(searching=FALSE, 
+                         paging=FALSE,
+                         info=FALSE))
+
+##Task3: Calculating Total Compensations
+nyc_payroll<-nyc_payroll|> 
+  mutate(total_compensation=case_when( pay_basis=="Prorated Annual"~base_salary,
+                                       pay_basis=="per Annum"~base_salary,
+                                       pay_basis=="per Day"~base_salary*(regular_hours/7.5),
+                                       pay_basis=="per Hour"~base_salary*(regular_hours+ot_hours*1.5),
+                                       TRUE ~ NA_real_
+                                       ))
+
+```
+
+
+
+```{r}
+
+#| include: false
+#| message: false
+#| warning: false
+#| results: false
+# Getting an overview of data
+library(skimr)  
+skim(nyc_payroll)
+sum(is.na(nyc_payroll$total_compensation)) 
+
+```
+
+# Distribution of Total Compensation
+
+::: {.text-right}
+
+  The results from the histogram shows that the total compensation is highly right-skewed. The bulk of the data clusters toward the lower end of the total compensation scale with a tall bar in the leftmost bins. This tall bar at the lowest bins signals two things, either there are many zero total compensation in the data which may be an error or there are many low earning workers in NYC municipal. As total compensation increases, the frequency of employees decreases, forming a “long tail” on the right. This indicates that while most employees earn relatively moderate amounts, a smaller subset receives significantly higher compensation.
+  Also, the box plot shows the distribution of total compensation. It’s apparent that the distribution is right-skewed with majority of employees falling within a relatively moderate compensation range while a smaller number receive substantially higher pay. The box plot also shows the presence of outliers in the data. There are a fair number of people earning beyond $300,000. 
+  The median salary is $69,492, meaning half of the employees earn less and half earn more. The 10th percentile (p10) is $29,162, indicating that 10% of employees earn below this amount, while the 90th percentile (p90) is $111,839, showing that 10% of employees earn above this value. The 25th percentile (p25) is $44,552, and the 75th percentile (p75) is $92,184, which together represent the middle 50% of salaries. 
+  
+:::
+
+```{r}
+
+#| echo: true
+#| fold: true
+#| code-summary: "Code"
+options(scipen = 999)
+hist(nyc_payroll$total_compensation,col="blue",
+     xlab="Total Compensation",border="black",
+     main="Distribution of Total Compensation in New York City")
+
+boxplot(nyc_payroll$total_compensation,
+        main = "Total Compensation in New York",
+        ylab = "Total Compensation",
+        col = "blue")
+
+```
+
+```{r}
+
+#| echo: false
+#| message: false
+#| warning: false
+#drop observations with zero total compensations. From the                          calcutions above total compensations will be zero only if there is an error in the data
+nyc_payroll <- nyc_payroll |>    
+ filter(total_compensation != 0)
+  
+```
+
+# Task4:Instructor-Provided Questions
+
+::: {.text-right}
+
+  The analysis shows that the highest base rate of pay is for the job title "MEMBER, CIVILIAN COMPLAINT REVIEW BOARD" with an average hourly rate of $320. This indicates that the role may require specialized skills and significant responsibility, reflecting the importance and expertise needed to handle complex civil complaint reviews. The data reveals that Gregory P. Russ from NYC Housing holds the record for the single highest city total payroll with his top earning recorded in fiscal year 2022. This same individual had the highest single pay in fiscal years 2021 and 2020. Internicola James, a Correction Officer in Queens, worked the most overtime hours in this dataset, with a total of 3692.9 hours. Also, from the analysis the data shows that the agency with the highest average total annual payroll is the Office of Racial Equity. On average, each employee in this agency earns $151,093 when combining base salary and overtime pay. This indicates that, compared to other agencies, employees in the Office of Racial Equity are paid at a higher rate which could be due to higher base salaries, more overtime or a combination of both.
+Again, the data shows that the DEPT OF ED PEDAGOGICAL consistently had the highest number of employees on payroll from 2014 to 2024. In 2014, the department employed 100,589 individuals and this number increased to 111,857 in 2015. Although there were some small changes in the following years, the count reached 114,999 by 2020 and peaked at 120,453 in 2022. After the peak in 2022, the employee count fell to 106,882 in 2023 before slightly rising to 108,209 in 2024. The consistently high employee count in the DEPT OF ED PEDAGOGICAL highlights its major role in managing New York City’s public education programs. Results from the analysis shows that the FIRE DEPARTMENT has the highest overtime usage with an average of about 345.89 overtime hours per employee compared to regular hours. This suggests that firefighters often work a significant number of extra hours, likely due to the demanding nature of emergency services and the need to respond to unpredictable situations. The high overtime figure could also indicate staffing challenges or periods of increased workload that require firefighters to extend their shifts.
+The analysis also reveals that employees working outside the five boroughs earn an average annual salary of $71,983. This lower figure compared to salaries within New York City's core counties may reflect variations in job roles, budget priorities or local cost of living. Finally, the results indicates that over the past ten years, the city's total payroll has grown by approximately $6.66 billion, representing a 28.1% increase.
+
+:::
+
+```{r}
+
+#| echo: true
+#| fold: true
+#| results: false
+#| code-summary: "Code"
+# Task4:Instructor-Provided Questions
+# Which job title has the highest base rate of pay?
+highest_pay_title <- nyc_payroll|>
+  mutate(base_hourly = case_when(
+    pay_basis %in% c("Prorated Annual", "per Annum") ~ base_salary / 2000,
+    pay_basis == "per Day" ~ base_salary / 7.5,
+    pay_basis == "per Hour" ~ base_salary,
+    TRUE ~ NA_real_
+  )) |>
+  group_by(title_description) |>
+  summarize(avg_hourly_rate = mean(base_hourly, na.rm = TRUE), .groups = "drop")|>
+  slice_max(avg_hourly_rate,n=1)
+highest_pay_title
+
+```
+
+```{r}
+
+#2Which individual & in what year had the single highest city total payroll
+#| echo: true
+#| fold: true
+#| results: false
+#| code-summary: "Code"
+highest_paid_individual<-nyc_payroll|>
+  slice_max(total_compensation,n=1)
+  highest_paid_individual
+
+#3 Which individual worked the most overtime hours in this data set?
+max_ot_hours <- nyc_payroll |>
+    filter(!is.na(ot_hours)) |>
+    slice_max(ot_hours, n = 1)
+View(max_ot_hours)
+
+#4 Which agency has the highest average total annual payroll (base and overtime pay per employee)?
+highest_average_pay_agency<-nyc_payroll |>
+  filter(!is.na(total_compensation)) |>
+  group_by(agency_name)|>
+  summarise(average_pay_agency=mean(total_compensation,narm=TRUE), .groups = "drop")|>
+  slice_max(average_pay_agency,n=1)
+highest_average_pay_agency
+
+```
+
+
+```{r}
+
+#5 Which agency has the most employees on payroll in each year?
+#| echo: true
+#| fold: true
+#| results: false
+#| code-summary: "Code"
+employees_agency<-nyc_payroll |>
+  filter(!is.na(total_compensation)) |>
+  group_by(fiscal_year,agency_name)|>
+  summarise(employee_count=n())|>
+  slice_max(employee_count)
+employees_agency
+
+```
+
+
+```{r}
+
+#6 Which agency has the highest overtime usage (compared to regular hours)?
+#| echo: true
+#| fold: true
+#| results: false
+#| code-summary: "Code"
+max_ot_hours_agency <- nyc_payroll |>
+  filter(!is.na(ot_hours)) |>
+  group_by(agency_name)|>
+  summarise(average_ot_hours_agency=mean(ot_hours,narm=TRUE), .groups = "drop")|>
+  slice_max(average_ot_hours_agency, n = 1)
+View(max_ot_hours_agency)
+
+```
+
+
+```{r}
+
+#7 What is the average salary of employees who work outside the five boroughs? (That is, whose work_location_borough is not one of the five counties.)
+#| echo: true
+#| fold: true
+#| results: false
+#| code-summary: "Code"
+empolyee_salary_outsideborough<-nyc_payroll |>
+  filter(!work_location_borough %in% c("MANHATTAN", "BROOKLYN", "QUEENS", "BRONX", "STATEN ISLAND"))|>
+  summarise(average_salary_outsideborough=mean(total_compensation,.na=TRUE))
+  empolyee_salary_outsideborough
+
+```
+
+
+```{r}
+
+#8 How much has the city’s aggregate payroll grown over the past 10 years?
+#| echo: true
+#| fold: true
+#| results: false
+#| code-summary: "Code"
+  #defining 10 year period
+  last_year <- max(nyc_payroll$fiscal_year, na.rm = TRUE)
+  first_year <- last_year - 9 
+  
+  # Calculate aggregate payroll per year for the 10-year period
+  payroll_trend <- nyc_payroll |>
+    filter(fiscal_year >= first_year & fiscal_year <= last_year) |>
+    group_by(fiscal_year) |>
+    summarize(annual_payroll = sum(total_compensation, na.rm = TRUE), .groups = "drop") |>
+    arrange(fiscal_year)
+  
+  # Calculating growth: absolute and percent
+  absolute_growth <- payroll_trend$annual_payroll[nrow(payroll_trend)] - payroll_trend$annual_payroll[1]
+  percent_growth <- (payroll_trend$annual_payroll[nrow(payroll_trend)] / payroll_trend$annual_payroll[1] - 1) * 100
+  
+  # View the annual payroll trend and growth results
+  print(payroll_trend)
+  cat("Absolute growth over 10 years: ", absolute_growth, "\n")
+  cat("Percent growth over 10 years: ", round(percent_growth, 2), "%\n")
+
+``` 
+  
+```{r}
+
+#| echo:true
+#| fold:true
+ #EDA
+  summary_stats <- nyc_payroll |>
+    summarise(
+      median_salary = median(total_compensation, na.rm = TRUE),
+      p10 = quantile(total_compensation, 0.10, na.rm = TRUE),
+      p25 = quantile(total_compensation, 0.25, na.rm = TRUE),
+      p50 = quantile(total_compensation, 0.50, na.rm = TRUE),
+      p75 = quantile(total_compensation, 0.75, na.rm = TRUE),
+      p90 = quantile(total_compensation, 0.90, na.rm = TRUE)
+    )
+  print(summary_stats)
+  
+  #own analysis
+  #Empolyee work location by borough
+nyc_payroll |>
+  count(work_location_borough, .drop = FALSE) |>
+  print(n = Inf)
+table_data <- nyc_payroll |>
+  count(work_location_borough, .drop = FALSE)|>
+  mutate(work_location_borough = replace_na(work_location_borough, "MISSING")) |>
+  rename("Work Location" = work_location_borough, "Employee Count" = n)
+datatable(table_data, options = list(
+  pageLength = nrow(table_data), 
+  searching = FALSE, 
+  paging = FALSE, 
+  info = FALSE
+  ))
+
+``` 
+
+
+
+
+References
+NYC Government. (2023). NYC Government Workforce Profile Report FY 2023.
