@@ -1,0 +1,443 @@
+---
+title: "GTA IV Announces Winners for the Greenest Public Transit Agencies"
+date: "03/26/2025"
+format:
+  html:
+    toc: true
+    toc-location: right
+    toc-title: "On this page"
+    css: styles.css
+---
+**FOR IMMEDIATE RELEASE**
+
+A comprehensive analysis of transit system data has led to the proposal of the new GTA IV awards, celebrating transit agencies that excel in environmental performance and efficiency. The awards leverage detailed data from the U.S. Energy Information Administration’s State Electricity Profiles, the NTD’s 2023 Annual Database Energy Consumption report, and the National Transit Database’s Service by Agency report.
+
+# Award Highlights
+**Greenest Transit Agency Award:**
+Alternativa de Transporte Integrado earns this honor for achieving zero emissions per unlinked passenger trip (UPT) and per passenger mile.
+
+**Most Emissions Avoided Award**
+Recognizing its high service volume combined with zero emissions, the Ann Arbor Area Transportation Authority is celebrated for avoiding significant potential CO₂ output relative to its size.
+
+**Efficiency Excellence Award:**
+Ben Franklin Transit is acknowledged for managing high ridership while maintaining a stellar efficiency record with zero emissions.
+
+**Worst Of Award:**
+Notably, among agencies meeting the data threshold (UPT ≥ 50,000), no agency registered high emissions, highlighting the overall positive environmental performance in the sector.
+This analysis and awards not only recognize the leaders in sustainable transit but also demonstrates the significant strides being made nationwide. The positive trends highlighted in the data give us reason to be optimistic about the future of environmentally responsible public transportation.
+
+For more information about the methodology and detailed findings, please contact:
+
+Augustine Korang,
+Executive Director,
+Green Transit Alliance for Investigation of Variance.
+
+# Data Analysis & Methods
+
+## Task 1,3 & 5: Data Imports and Data Preparation
+
+```{r}
+#| code-fold: true
+#| warning: false
+#| message: false
+#| results: 'hide'
+#Loading the libraries
+library(tidyverse)
+
+#data aquisition: SEP Data
+ensure_package <- function(pkg){
+  pkg <- as.character(substitute(pkg))
+  options(repos = c(CRAN = "https://cloud.r-project.org"))
+  if(!require(pkg, character.only=TRUE)) install.packages(pkg)
+  stopifnot(require(pkg, character.only=TRUE))
+}
+
+ensure_package(httr2)
+ensure_package(rvest)
+ensure_package(datasets)
+ensure_package(purrr)
+ensure_package(DT)
+
+get_eia_sep <- function(state, abbr){
+  state_formatted <- str_to_lower(state) |> str_replace_all("\\s", "")
+  
+  dir_name <- file.path("data", "mp02")
+  file_name <- file.path(dir_name, state_formatted)
+  
+  dir.create(dir_name, showWarnings=FALSE, recursive=TRUE)
+  
+  if(!file.exists(file_name)){
+    BASE_URL <- "https://www.eia.gov"
+    REQUEST <- request(BASE_URL) |> 
+      req_url_path("electricity", "state", state_formatted)
+    
+    RESPONSE <- req_perform(REQUEST)
+    
+    resp_check_status(RESPONSE)
+    
+    writeLines(resp_body_string(RESPONSE), file_name)
+  }
+  
+  TABLE <- read_html(file_name) |> 
+    html_element("table") |> 
+    html_table() |>
+    mutate(Item = str_to_lower(Item))
+  
+  if("U.S. rank" %in% colnames(TABLE)){
+    TABLE <- TABLE |> rename(Rank = `U.S. rank`)
+  }
+  
+  CO2_MWh <- TABLE |> 
+    filter(Item == "carbon dioxide (lbs/mwh)") |>
+    pull(Value) |> 
+    str_replace_all(",", "") |>
+    as.numeric()
+  
+  PRIMARY <- TABLE |> 
+    filter(Item == "primary energy source") |> 
+    pull(Rank)
+  
+  RATE <- TABLE |>
+    filter(Item == "average retail price (cents/kwh)") |>
+    pull(Value) |>
+    as.numeric()
+  
+  GENERATION_MWh <- TABLE |>
+    filter(Item == "net generation (megawatthours)") |>
+    pull(Value) |>
+    str_replace_all(",", "") |>
+    as.numeric()
+  
+  data.frame(CO2_MWh               = CO2_MWh, 
+             primary_source        = PRIMARY,
+             electricity_price_MWh = RATE * 10, # / 100 cents to dollars &
+             # * 1000 kWh to MWH 
+             generation_MWh        = GENERATION_MWh, 
+             state                 = state, 
+             abbreviation          = abbr
+  )
+}
+
+EIA_SEP_REPORT <- map2(state.name, state.abb, get_eia_sep) |> list_rbind()
+
+EIA_SEP_REPORT
+#data import 2
+ensure_package(readxl)
+# Create 'data/mp02' directory if not already present
+DATA_DIR <- file.path("data", "mp02")
+dir.create(DATA_DIR, showWarnings=FALSE, recursive=TRUE)
+
+NTD_ENERGY_FILE <- file.path(DATA_DIR, "2023_ntd_energy.xlsx")
+
+if(!file.exists(NTD_ENERGY_FILE)){
+  DS <- download.file("https://www.transit.dot.gov/sites/fta.dot.gov/files/2024-10/2023%20Energy%20Consumption.xlsx", 
+                      destfile=NTD_ENERGY_FILE, 
+                      method="curl")
+  
+  if(DS | (file.info(NTD_ENERGY_FILE)$size == 0)){
+    cat("I was unable to download the NTD Energy File. Please try again.\n")
+    stop("Download failed")
+  }
+}
+
+NTD_ENERGY_RAW <- read_xlsx(NTD_ENERGY_FILE)
+
+ensure_package(tidyr)
+to_numeric_fill_0 <- function(x){
+  x <- if_else(x == "-", NA, x)
+  replace_na(as.numeric(x), 0)
+}
+
+NTD_ENERGY <- NTD_ENERGY_RAW |> 
+  select(-c(`Reporter Type`, 
+            `Reporting Module`, 
+            `Other Fuel`, 
+            `Other Fuel Description`)) |>
+  mutate(across(-c(`Agency Name`, 
+                   `Mode`,
+                   `TOS`), 
+                to_numeric_fill_0)) |>
+  group_by(`NTD ID`, `Mode`, `Agency Name`) |>
+  summarize(across(where(is.numeric), sum), 
+            .groups = "keep") |>
+  mutate(ENERGY = sum(c_across(c(where(is.numeric))))) |>
+  filter(ENERGY > 0) |>
+  select(-ENERGY) |>
+  ungroup()
+
+# Display 10 random rows
+slice_sample(NTD_ENERGY , n=10)
+
+#Task 3: Recoding the Mode column
+#Unique modes
+unique_modes <- NTD_ENERGY |> distinct(Mode)
+print(unique_modes)
+
+#Renaming mode o transport column
+NTD_ENERGY <- NTD_ENERGY |>
+  mutate(Mode = case_when(
+    Mode == "HR" ~ "Heavy Rail", 
+    Mode == "DR" ~ "Demand Response",
+    Mode == "FB" ~ "Ferry Boat",            
+    Mode == "MB" ~ "Bus",           
+    Mode == "SR" ~ "Streetcar Rail",   
+    Mode == "TB" ~ "Trolley Bus",           
+    Mode == "VP" ~ "Vanpool",              
+    Mode == "CB" ~ "Commuter Bus",          
+    Mode == "RB" ~ "Bus Rapid Transit",             
+    Mode == "LR" ~ "Light Rail",            
+    Mode == "MG" ~ " Monorail/Automated Guideway",              
+    Mode == "CR" ~ "Commuter Rail",         
+    Mode == "AR" ~ "Alaska Railroad",        
+    Mode == "TR" ~ "Aerial Tramway",                  
+    Mode == "YR" ~ " Hybrid Rail",             
+    Mode == "IP" ~ "Inclined Plane",   
+    Mode == "PB" ~ " Público",        
+    Mode == "CC" ~ ", Cable Car",        
+    TRUE ~ "Unknown"
+  ))
+
+#NTD Service data
+NTD_SERVICE_FILE <- file.path(DATA_DIR, "2023_service.csv")
+if(!file.exists(NTD_SERVICE_FILE)){
+  DS <- download.file("https://data.transportation.gov/resource/6y83-7vuw.csv", 
+                      destfile=NTD_SERVICE_FILE, 
+                      method="curl")
+  
+  if(DS | (file.info(NTD_SERVICE_FILE)$size == 0)){
+    cat("I was unable to download the NTD Service File. Please try again.\n")
+    stop("Download failed")
+  }
+}
+
+NTD_SERVICE_RAW <- read_csv(NTD_SERVICE_FILE)
+
+NTD_SERVICE <- NTD_SERVICE_RAW |>
+  mutate(`NTD ID` = as.numeric(`_5_digit_ntd_id`)) |> 
+  rename(Agency = agency, 
+         City   = max_city, 
+         State  = max_state,
+         UPT    = sum_unlinked_passenger_trips_upt, 
+         MILES  = sum_passenger_miles) |>
+  select(matches("^[A-Z]", ignore.case=FALSE)) |>
+  filter(MILES > 0)
+
+#Task 5: Task 5: Calculating Emissions
+# 1 Join NTD_SERVICE and NTD_ENERGY on "NTD ID" so that each row is an Agency + Mode pair.
+agency_mode_table <- NTD_SERVICE |>
+  inner_join(NTD_ENERGY, by = "NTD ID")
+
+# 2. Reshape EIA_SEP_REPORT to a wide format
+eia_wide <- EIA_SEP_REPORT |>
+  select(abbreviation, primary_source, CO2_MWh) |>
+  pivot_wider(
+    names_from = primary_source,
+    values_from = CO2_MWh,
+    names_prefix = "CO2_MWh_"
+  )
+
+# 3 Join the reshaped EIA table to our agency+mode table using the state abbreviation
+final_table <- agency_mode_table |>
+  left_join(eia_wide, by = c("State" = "abbreviation"))
+  final_table
+
+head(final_table)
+glimpse(final_table)
+#4 Converting combustion fuels to CO2 emissions
+final_table <- final_table |>
+  mutate(total_emissions = 
+           (`Bio-Diesel`  *22.45      * `CO2_MWh_Petroleum`) +
+           (`Bunker Fuel` * 24.78     *  CO2_MWh_Petroleum) +
+           (`C Natural Gas` * 120.85  *  `CO2_MWh_Natural gas`)  +
+           (`Diesel Fuel`   * 22.45   *  CO2_MWh_Petroleum) +
+           (`Electric Battery`        * 20.86        * CO2_MWh_Hydroelectric) +
+           (`Electric Propulsion`     * 20.86      * CO2_MWh_Hydroelectric) +
+           (`Ethanol`                 * 12.68     * CO2_MWh_Petroleum) +
+           (`Methonal`                * 12.68     * CO2_MWh_Petroleum) +
+           (`Gasoline`                * 22.45                *  CO2_MWh_Petroleum) +
+           (`Hydrogen`                * 12.68 * `CO2_MWh_Natural gas`) +
+           (`Kerosene`                * 21.78  *  CO2_MWh_Petroleum) +  
+           (`Liquified Nat Gas`       * 22.45       * `CO2_MWh_Natural gas`) +
+           (`Liquified Petroleum Gas` * 22.45 * CO2_MWh_Petroleum)
+  )
+
+glimpse(final_table)
+```
+
+## Data Collection and Description
+Data was sourced from the U.S. Energy Information Administration’s (EIA) State Electricity Profiles. The data was obtained by parsing the EIA SEP summary pages using custom code, which converted the raw information into a tidy table format suitable for analysis. The profiles provide detailed state-level insights into electricity generation which is used to estimate the environmental impacts of powering electric transit systems. Importantly, the analysis assumes that electricity generation within a state is fungible—meaning that every transit authority is attributed the same average generation emissions, regardless of any “green supply” agreements they might have. This approach simplifies the comparison of environmental impacts across different transit systems while providing a consistent basis for assessing emissions. In addition to the EIA SEP data, another dataset was obtained from the NTD’s 2023 Annual Database Energy Consumption report as an excel file which provides detailed fuel consumption information for transit agencies. This dataset includes key identifiers such as NTD ID, Mode, and Agency Name, with columns that quantify different type of fuel usage. To streamline the analysis, basic data cleaning was conducted. A key column Mode, was transformed by recoding the Mode column from its original two-letter codes (e.g., HR, DR, MB) to descriptive labels like “Heavy Rail,” “Demand Response” and “Bus”. Lastly,2023 Annual Database Service by Agency report was sourced from the National Transit Database. It provides detailed service-level information for 302 transit agencies across the United States. This dataset includes key variables such as the agency name, city, state, total unlinked passenger trips (UPT) and total passenger miles traveled (MILES), along with a unique numeric identifier (NTD ID) for each agency. Basic data cleaning including converting NTD ID values to numeric format and filtering out records with zero miles were done to ensure the accuracy and usability of the data.
+
+## Distribution CO2 Emissions 
+
+The box plot indicates that most U.S. states fall within a moderate range of CO₂ emissions per MWh with the middle 50% of states falling within a relatively narrow range. The median is located near the middle of the box, suggesting that half of the states have CO₂ emissions per MWh below this level and half above. The data is unimodal and has an outlier. Overall, the box plot suggests that most states cluster around a moderate emission level but at least one state has much higher emissions. 
+The histogram provides a clearer picture of the overall distribution. A large number of states cluster toward the lower end of emissions, forming a peak in that region. As emissions increase, the number of states decreases, resulting in a right-skewed pattern. This aligns with the box plot, where the outlier highlights that only a small portion of states reach very high emission levels compared to most others.
+
+```{r}
+#| code-fold: true
+#| warning: false
+#| message: false
+boxplot(EIA_SEP_REPORT$ CO2_MWh,
+        main = "Distribution of CO2 Emissions per MWh across US States",
+        ylab = "CO2 Emissions per MWh",
+        col = "blue")
+hist(EIA_SEP_REPORT$ CO2_MWh,col="blue",
+     xlab="CO2 Emissions per MWh",border="black",
+     main="Distribution of CO2 Emissions per MWh across US States")
+```
+## Task 2: Initial Analysis of SEP Data
+Task 2: Initial Analysis of SEP Data
+The results shows that Hawaii has the most expensive retail electricity of $386 per MWh. This aligns with the fact that Hawaii relies heavily on petroleum for power generation which typically results in higher electricity costs compared to states that use cheaper fuels for electricity generation. Also, the results indicate that West Virginia has the dirtiest electricity mix with the highest CO₂ emissions per MWh of 1925. The primary energy source for West Virginia in its electricity generation is coal which is known for high carbon emissions. On average, 805.3703 pounds of CO₂ are emitted per MWh of electricity produced in the US. The result indicates that petroleum is the rarest primary energy source and it is used in Hawaii where the electricity price is $386 per MWh. Moreover, the computed ratio of clean energy ratio between Texas and New York is 1.64 which indicates that Texas’s electricity generation emits about 1.64 times more CO₂ per megawatt-hour than New York’s. In other words, when comparing the two states, New York’s energy mix is approximately 1.64 times cleaner than that of Texas.
+
+```{r}
+#| code-fold: true
+#| warning: false
+#| message: false
+#| results: 'hide'
+#Which state has the most expensive retail electricity?
+EIA_SEP_REPORT|> 
+  slice_max(electricity_price_MWh,n=1)
+ 
+#Which state has the ‘dirtiest’ electricity mix?
+EIA_SEP_REPORT |>
+  slice_max(CO2_MWh, n = 1)
+
+#On average, how many pounds of CO2 are emitted per MWh of electricity produced in the US? (Note that you will need to use a suitably weighted average here.)
+weighted_avg <- EIA_SEP_REPORT |>
+ summarise(weighted_CO2 = sum(CO2_MWh * generation_MWh) / sum(generation_MWh))
+ weighted_avg
+
+#What is the rarest primary energy source in the US? What is the associated cost of electricity and where is it used?
+ rarest_source <- EIA_SEP_REPORT |>
+    count(primary_source) |>
+    slice_min(order_by = n, n = 1)
+  
+result <- EIA_SEP_REPORT |>
+    filter(primary_source == rarest_source$primary_source) |>
+    select(primary_source, electricity_price_MWh, state, abbreviation)
+    result
+
+#My home state, Texas, has a reputation as being the home of “dirty fossil fuels” while NY has a reputation as a leader in clean energy. How many times cleaner is NY’s energy mix than that of Texas?
+  tx_emissions <- EIA_SEP_REPORT |> 
+                 filter(state == "Texas")|>
+                select(CO2_MWh)
+                 tx_emissions
+                 
+  ny_emissions <- EIA_SEP_REPORT |>
+                filter(state =="New York")|>
+                select(CO2_MWh)
+                ny_emissions
+
+clean_ratio<-tx_emissions/ ny_emissions
+            round(clean_ratio, 2)
+```
+
+## Task 4: Exploring NTD Service Data
+The results indicate that MTA New York City Transit, operating in Brooklyn, NY, has the highest annual UPT of approximately 2.63 billion unlinked passenger trips recorded. This extremely high number suggests that the MTA handles an enormous volume of transit activity compared to other agencies. The average trip length for MTA NYC is approximately 3.64 miles. This means that, on average, each unlinked passenger trip on the MTA New York City Transit system covers about 3.64 miles. Also, results indicates that the transit service with the longest average trip length in NYC is operated by the "Private Transportation Corporation" in Brooklyn, NY. With an average trip length of 5.23 miles, this service covers longer distances per trip compared to other NYC transit services in the dataset. The analysis also indicates that New Hampshire (NH) has the fewest total public transit miles of 3,749,892 miles traveled. This suggests that compared to other states, NH has a relatively limited public transit network. Finally, the analysis reveals that not all states are represented in the dataset. Specifically, transit data is missing for Arizona (AZ), Arkansas (AR), California (CA), Colorado (CO), Hawaii (HI), Iowa (IA), Kansas (KS), Louisiana (LA), Missouri (MO), Montana (MT), Nebraska (NE), Nevada (NV), New Mexico (NM), North Dakota (ND), Oklahoma (OK), South Dakota (SD), Texas (TX), Utah (UT), and Wyoming (WY). Thus, the NTD Service dataset covers transit services from 31 states while 19 states are missing from the data. 
+```{r}
+#| code-fold: true
+#| warning: false
+#| message: false
+#| results: 'hide'
+#Which transit service has the most UPT annually?
+max_UPT_service <- NTD_SERVICE |> 
+  slice_max(UPT, n = 1)
+max_UPT_service
+#What is the average trip length of a trip on MTA NYC?
+mta_nyc<- NTD_SERVICE |> 
+  filter(Agency == "MTA New York City Transit")
+  
+avg_trip_length <- mta_nyc$MILES / mta_nyc$UPT
+      avg_trip_length
+
+#Which transit service in NYC has the longest average trip length?(NB: You need to be careful with the City column here. Certain MTA services are officially located in “New York City” while others are located in Brooklyn.)
+nyc_services <- NTD_SERVICE |>
+        filter(State == "NY" & (City == "New York City" | City == "Brooklyn"))
+nyc_services <- nyc_services |>
+        mutate(avg_trip_length = MILES / UPT)
+max_trip_service <- nyc_services |>
+        slice_max(avg_trip_length, n = 1)
+        max_trip_service   
+#Which state has the fewest total miles travelled by public transit?
+state_total_miles <- NTD_SERVICE |>
+          group_by(State) |>
+          summarize(total_miles = sum(MILES, na.rm = TRUE)) |>
+          slice_min(total_miles, n = 1)
+          state_total_miles
+#Are all states represented in this data? If no, which ones are missing? The state.name and state.abb objects we used above may be useful here.
+all_states <- state.abb
+states_in_data <- unique(NTD_SERVICE$State)
+missing_states <- setdiff(all_states, states_in_data)
+missing_states
+```
+# Task 6: Normalize Emissions to Transit Usage
+The aggregated agency‐level analysis where the summed total emissions (computed across all modes) and then normalized by UPT and passenger miles reveals that among agencies with at least 50,000 UPT, several transit agencies in every size category (small, medium, and large) report zero total emissions. This suggests that, according to our data and the way emissions were calculated, these agencies either operate entirely zero‐emission fleets or their reported fuel consumption results in a computed value of zero.
+```{r}
+#| code-fold: true
+#| warning: false
+#| message: false
+#| results: 'hide'
+
+#Aggregating Data to the Agency Level
+agency_summary <- final_table |>
+  group_by(Agency) |>
+  summarise(
+    total_emissions = sum(total_emissions, na.rm = TRUE),
+    UPT = first(UPT),        
+    MILES = first(MILES)    
+  )
+
+#Computing Emissions per UPT and per Passenger Mile
+agency_summary <- agency_summary |>
+  mutate(
+    emissions_per_UPT = total_emissions / UPT,
+    emissions_per_passenger_mile = total_emissions / MILES
+  )
+
+# Classifying Agencies into Small, Medium, and Large
+agency_summary <- agency_summary |>
+  mutate(size = ntile(UPT, 3)) |>
+  ungroup() |>
+  mutate(size = case_when(
+    size == 1 ~ "small",
+    size == 2 ~ "medium",
+    size == 3 ~ "large"
+  ))
+
+# Efficient agencies by emissions per UPT
+top_eff_UPT <- agency_summary |>
+  group_by(size) |>
+  arrange(emissions_per_UPT)|>
+  slice(1:3) |>
+  ungroup()
+
+# Efficient agencies by emissions per passenger mile
+top_eff_pax_mile <- agency_summary |>
+  group_by(size) |>
+  arrange(emissions_per_passenger_mile) |>
+  slice(1:3) |>
+  ungroup()
+
+#Results
+top_eff_UPT
+top_eff_pax_mile
+```
+# Awards
+Given these findings, the following GTA IV awards were proposed:
+
+## Greenest Transit Agency Award
+Agency with the lowest emissions per UPT and per passenger mile. Alternativa de Transporte Integrado is awarded the greenest because it shows zero emissions on both metrics.
+
+## Most Emissions Avoided Award
+An agency that through its high service volume (high UPT and miles) combined with zero emissions and avoids a significant amount of potential CO₂.
+Winner. Ann Arbor Area Transportation Authority stands out here, as it reports a high UPT (4.68e6) and high miles meaning that by operating with zero emissions, it avoids what could have been a large CO₂ output relative to its size.
+
+## Efficiency Excellence Award
+Recognizes an agency that, despite operating a high-ridership network, manages to maintain an outstanding efficiency record by reporting zero emissions. Ben Franklin Transit have high ridership relative to their service area and maintain zero emissions. 
+
+## Worst Of Award
+Highlights the agency with the highest emissions per UPT or per passenger mile among those with sufficient data. Within the filtered group of agencies (those with UPT ≥ 50,000), all agencies have zero emissions based on the current calculations. This suggests that at least among the agencies with calculated emissions, none are performing poorly by these environmental metrics.
+
+
+
+
+
