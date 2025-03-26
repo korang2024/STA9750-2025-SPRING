@@ -10,7 +10,7 @@ format:
 ---
 **FOR IMMEDIATE RELEASE**
 
-A comprehensive analysis of transit system data has led to the proposal of the new GTA IV awards, celebrating transit agencies that excel in environmental performance and efficiency. The awards leverage detailed data from the U.S. Energy Information Administration’s State Electricity Profiles, the NTD’s 2023 Annual Database Energy Consumption report, and the National Transit Database’s Service by Agency report.
+A comprehensive analysis of transit system data has led to the proposal of the new GTA IV awards, celebrating transit agencies that excel in environmental performance and efficiency. The awards leverage detailed data from the U.S. Energy Information Administration’s State Electricity Profiles, the NTD’s 2023 Annual Database Energy Consumption report and the National Transit Database’s Service by Agency report.
 
 # Award Highlights
 **Greenest Transit Agency Award:**
