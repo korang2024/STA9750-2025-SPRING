@@ -478,6 +478,7 @@ joined_data <- playlists_data|>
 ::: {.justify style="text-align: justify;"}
 The result shows that the correlation between playlist appearances and track popularity is approximately 0.381, indicating a moderate positive relationship. This suggests that, in general, songs that appear in more playlists tend to have higher popularity scores.
 :::
+
 ```{r}
 #| code-fold: true
 #| warning: false
@@ -496,7 +497,13 @@ tibble::tibble(
 ) |>
   kable(caption = "<b><span style='font-size:18px;'>Correlation Results</span></b>") |>
   kable_styling(bootstrap_options = c("striped", "condensed"), position = "center", full_width = FALSE)
+```
 
+```{r}
+#| code-fold: true
+#| warning: false
+#| message: false
+#| results: 'hide'
 #Visualizing the relationship
 library(ggplot2)
 ggplot(track_appearances, aes(x = playlist_appearances, y = popularity)) +
@@ -508,6 +515,13 @@ ggplot(track_appearances, aes(x = playlist_appearances, y = popularity)) +
     y = "Popularity Score"
   ) +
   theme_minimal(base_size = 14)
+
+```
+```{r, out.width="100%"}
+#| code-fold: true
+#| warning: false
+#| message: false
+knitr::include_graphics("Task5_1.png")
 ```
 
 ## 2.In what year were the most popular songs released?
