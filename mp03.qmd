@@ -13,8 +13,14 @@ format:
 ::: {.justify style="text-align: justify;"}
 *Vibes in Motion* is a 12-track playlist designed to take you on a smooth and engaging music journey. It starts with warmth and groove, dips into calm and emotion and rises again with strong rhythm. You will find both popular artists like Drake and lesser-known talents like Adriel Favela. This playlist mixes familiar tracks with new discoveries, making it great for relaxing, driving or just enjoying good music.
 
-::: {.justify style="text-align: justify;"}
+```{r, out.width="100%"}
+#| code-fold: true
+#| warning: false
+#| message: false
+knitr::include_graphics("final_playlist.png")
+```
 
+::: {.justify style="text-align: justify;"}
 ## 🎯 Design Principles
 
 1. *Quantitative Harmony*: Songs were selected based on similar tempo, key and compatible ranges in danceability, energy and valence ensuring seamless transitions.
@@ -35,8 +41,8 @@ format:
 
 
 ::: {.justify style="text-align: justify;"}
-📈 Why This Playlist is Ultimate
-The chart below shows how the danceability, energy, and valence (emotional tone) change from one track to the next. You can see that the playlist flows smoothly, with a balance of highs and lows that keep it interesting.
+## 📈 Why This Playlist is Ultimate
+The chart below shows how danceability, energy and valence change from one track to the other. You can see that the playlist flows smoothly, with a balance of highs and lows that keep it interesting.
 :::
 
 ```{r, out.width="100%"}
