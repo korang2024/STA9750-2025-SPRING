@@ -1,0 +1,680 @@
+---
+title: "U.S. 2024 Election Results: A National Vibe Shift"
+format:
+  html:
+    toc: true
+    toc-location: right
+    toc-title: "On this page"
+    css: styles.css
+---
+```{r}
+#| code-fold: true
+#| warning: false
+#| message: false
+#| results: 'hide'
+# Load libraries
+library(tidyverse)
+library(knitr)
+library(kableExtra)
+library(lubridate)
+library(jsonlite)
+library(purrr)
+library(httr2 )
+library(rvest)
+library(janitor)
+library(sf)
+library(scales)
+```
+::: {.justify style="text-align: justify;"}
+# Executive Summary
+This project explores changes in U.S. county-level voting behavior between the 2020 and 2024 Presidential elections. Election results were scraped from Wikipedia due to inconsistencies in official state election websites and official county boundary shapefiles were obtained from the U.S. Census Bureau. Key findings from the analysis include both absolute and proportional changes in voting patterns, turnout and geographic characteristics. Some counties recorded large gains in Republican votes while others showed strong Democratic support, particularly in smaller or urban areas. The results highlight the complexity of interpreting nationwide electoral trends based solely on visual maps.
+:::
+
+::: {.justify style="text-align: justify;"}
+# Highlights of Key Findings
+- *Largest Number of Trump Votes (2024)*:
+Los Angeles County, California cast the highest number of votes for Donald Trump in 2024, over 1.18 million votes. However, this may be due to the county's large population, not a Republican majority.
+- *Highest Proportion of Biden Votes (2020)*:
+Kalawao County, Hawaii recorded 95.8% of its votes for Joe Biden, the highest percentage in the nation, though from a very small voter base.
+- *Largest Absolute Gain for Trump (2024)*:
+Los Angeles County, California also saw the largest increase in Trump votes from 2020 to 2024, an increase of 44,332 votes.
+- *Biggest Shift Toward Harris (2024)*:
+Florida experienced the largest shift in vote margin in favor of Kamala Harris with a gain of approximately 371,686 votes.
+- *Largest County by Land Area*:
+Yukon-Koyukuk County, Alaska is the largest in the dataset, covering over 377 billion square meters, aligning with known geographic facts.
+- *Highest Voter Density (2020)*:
+New York County, New York had the highest voter density, with 0.01 voters per square meter, reflecting high population density in a small area.
+- *Highest Increase in Voter Turnout (2020–2024)*:
+Montgomery County, Texas saw the biggest rise in total votes cast, increasing by 35,715 votes from 2020 to 2024.
+:::
+
+# Introduction
+::: {.justify style="text-align: justify;"}
+After the 2024 U.S. Presidential election, The New York Times published a map suggesting that many counties across the United States had shifted toward the Republican party compared to 2020. This visual quickly spread online and shaped public discussions around a possible nationwide political “vibe shift.” This project aims to investigate the changes in vote shares between the 2020 and 2024 presidential elections at the county level as well as recreate and evaluate the original map. 
+Data on election results at the county-level was collected for both years from Wikipedia pages for each state. While not a primary source, Wikipedia provided a reliable and practical alternative due to the challenges of collecting data from official state websites, which are often inconsistent and difficult to automate. For mapping, the U.S. county boundary shapefiles from the U.S. Census Bureau’s Cartographic Boundary Files (2023) was used and the finest available resolution (1:500,000) was selected to ensure high-quality geographic visualizations.
+By combining cleaned election results with accurate county shapes, the shift in Republican vote share in each county was calculated and visualized using tools in R. This project offers a data-driven look at whether the supposed nationwide political shift is supported by the numbers and where that shift, if any, was most pronounced.
+:::
+
+# Data Aquisition
+## Task 1: US County Shapefiles
+::: {.justify}
+The shapefile containing U.S. county (and equivalent) boundaries was obtained from the U.S. Census Bureau’s Cartographic Boundary Files (2023).The finest available resolution (1:500,000) was chosen to ensure high-quality and accurate geographic visualizations.
+:::
+
+```{r}
+#| code-fold: true
+#| warning: false
+#| message: false
+#| results: 'hide'
+# Create directory if it doesn't exist
+if (!file.exists("data/mp04")) {
+  dir.create("data/mp04", showWarnings = FALSE, recursive = TRUE)
+}
+
+# Define the URL and destination file path (2023, 1:500k resolution)
+url <- "https://www2.census.gov/geo/tiger/GENZ2023/shp/cb_2023_us_county_500k.zip"
+zip_path <- "data/mp04/cb_2023_us_county_500k.zip"
+
+#Download the file if it's not already downloaded
+if (!file.exists(zip_path)) {
+  download.file(url, destfile = zip_path, mode = "wb")
+  message("2023 Shapefile downloaded.")
+} else {
+  message("2023 Shapefile already downloaded.")
+}
+
+# Unzip the file if not already unzipped
+shp_file_exists <- any(grepl("\\.shp$", list.files("data/mp04")))
+if (!shp_file_exists) {
+  unzip(zip_path, exdir = "data/mp04")
+  message("2023 Shapefile unzipped.")
+} else {
+  message("2023 Shapefile already unzipped.")
+}
+```
+
+::: {.justify style="text-align: justify;"}
+The 2020 and 2024 U.S. Presidential election results at the county level were collected from Wikipedia pages for each state. Since official state websites are not consistent and difficult to automate, Wikipedia was used as a reliable alternative. Using R packages like httr2 and rvest, the tables with county-level results were downloaded, cleaned, and labeled with the state name to prepare the data for analysis
+:::
+
+## Task 2: Acquire 2024 US Presidential Election Results
+```{r}
+#| code-fold: true
+#| warning: false
+#| message: false
+#| results: 'hide'
+#Create directory to store downloaded HTML pages
+if (!dir.exists("data/mp04/wikipedia_pages")) {
+  dir.create("data/mp04/wikipedia_pages", recursive = TRUE)
+}
+
+# List of 50 U.S. States
+us_states <- c(
+  "Alabama", "Alaska", "Arizona", "Arkansas", "California", "Colorado", "Connecticut",
+  "Delaware", "Florida", "Georgia", "Hawaii", "Idaho", "Illinois", "Indiana", "Iowa",
+  "Kansas", "Kentucky", "Louisiana", "Maine", "Maryland", "Massachusetts", "Michigan",
+  "Minnesota", "Mississippi", "Missouri", "Montana", "Nebraska", "Nevada", "New Hampshire",
+  "New Jersey", "New Mexico", "New York", "North Carolina", "North Dakota", "Ohio",
+  "Oklahoma", "Oregon", "Pennsylvania", "Rhode Island", "South Carolina", "South Dakota",
+  "Tennessee", "Texas", "Utah", "Vermont", "Virginia", "Washington", "West Virginia",
+  "Wisconsin", "Wyoming"
+)
+
+#  Safe filename helper function
+safe_filename <- function(state) {
+  gsub(" ", "_", tolower(state))
+}
+
+# Scraping function for a single state
+scrape_state_results <- function(state) {
+  message("Processing: ", state)
+  
+  # Construct Wikipedia path and local cache path
+  base_url <- "https://en.wikipedia.org/wiki"
+  path <- paste0("2024_United_States_presidential_election_in_", gsub(" ", "_", state))
+  html_path <- file.path("data/mp04/wikipedia_pages", paste0(safe_filename(state), ".html"))
+  
+  # Download HTML only if not already saved
+  if (!file.exists(html_path)) {
+    req <- request(base_url) |>
+      req_url_path_append(path) |>
+      req_perform()
+    writeBin(resp_body_raw(req), html_path)
+  }
+  
+  # Read the HTML and extract all tables
+  html <- read_html(html_path)
+  tables <- html_elements(html, "table") |> html_table(fill = TRUE)
+  
+  # Find table with a column like "County", "Parish", "Borough", etc.
+  target_table <- NULL
+  for (tbl in tables) {
+    colnames_lower <- tolower(names(tbl))
+    if (any(str_detect(colnames_lower, "county|parish|borough|city and borough"))) {
+      target_table <- tbl
+      break
+    }
+  }
+  
+  # If not found, return NULL with warning
+  if (is.null(target_table)) {
+    warning("No county-level table found for ", state)
+    return(NULL)
+  }
+  
+  # Clean and return table with state column
+  cleaned <- target_table |>
+    clean_names() |>
+    mutate(state = state)
+  
+  return(cleaned)
+}
+
+# Scrape all 50 states 
+all_election_results <- map_dfr(us_states, possibly(scrape_state_results, otherwise = NULL))
+
+#Save final result
+write_csv(all_election_results, "data/mp04/all_county_election_results_2024.csv")
+
+# Preview the combined dataset
+glimpse(all_election_results)
+```
+## Task 3: Acquire 2020 US Presidential Election Results
+```{r}
+#| code-fold: true
+#| warning: false
+#| message: false
+#| results: 'hide'
+# Create directory to store downloaded 2020 pages
+if (!dir.exists("data/mp04/wikipedia_pages_2020")) {
+  dir.create("data/mp04/wikipedia_pages_2020", recursive = TRUE)
+}
+
+# List of 50 U.S. states
+us_states <- c(
+  "Alabama", "Alaska", "Arizona", "Arkansas", "California", "Colorado", "Connecticut",
+  "Delaware", "Florida", "Georgia", "Hawaii", "Idaho", "Illinois", "Indiana", "Iowa",
+  "Kansas", "Kentucky", "Louisiana", "Maine", "Maryland", "Massachusetts", "Michigan",
+  "Minnesota", "Mississippi", "Missouri", "Montana", "Nebraska", "Nevada", "New Hampshire",
+  "New Jersey", "New Mexico", "New York", "North Carolina", "North Dakota", "Ohio",
+  "Oklahoma", "Oregon", "Pennsylvania", "Rhode Island", "South Carolina", "South Dakota",
+  "Tennessee", "Texas", "Utah", "Vermont", "Virginia", "Washington", "West Virginia",
+  "Wisconsin", "Wyoming"
+)
+
+# Safe filename helper
+safe_filename <- function(state) {
+  gsub(" ", "_", tolower(state))
+}
+
+# Scraping function for 2020 results
+scrape_2020_results <- function(state) {
+  message("Processing: ", state)
+  
+  base_url <- "https://en.wikipedia.org/wiki"
+  path <- paste0("2020_United_States_presidential_election_in_", gsub(" ", "_", state))
+  html_path <- file.path("data/mp04/wikipedia_pages_2020", paste0(safe_filename(state), ".html"))
+  
+  # Download if not cached
+  if (!file.exists(html_path)) {
+    req <- request(base_url) |>
+      req_url_path_append(path) |>
+      req_perform()
+    writeBin(resp_body_raw(req), html_path)
+  }
+  
+  # Read and parse HTML
+  html <- read_html(html_path)
+  tables <- html_elements(html, "table") |> html_table(fill = TRUE)
+  
+  # Find relevant table
+  target_table <- NULL
+  for (tbl in tables) {
+    colnames_lower <- tolower(names(tbl))
+    if (any(str_detect(colnames_lower, "county|parish|borough|city and borough"))) {
+      target_table <- tbl
+      break
+    }
+  }
+  
+  if (is.null(target_table)) {
+    warning("No county-level table found for ", state)
+    return(NULL)
+  }
+  
+  cleaned <- target_table |>
+    clean_names() |>
+    mutate(state = state)
+  
+  return(cleaned)
+}
+
+# Scrape all 50 states
+all_results_2020 <- map_dfr(us_states, possibly(scrape_2020_results, otherwise = NULL))
+
+# Save results
+write_csv(all_results_2020, "data/mp04/all_county_election_results_2020.csv")
+
+# Preview
+glimpse(all_results_2020)
+```
+
+```{r}
+#| code-fold: true
+#| warning: false
+#| message: false
+#| results: 'hide'
+#Combining all data sets
+# Load county shapefile
+county_shapes <- st_read("data/mp04/cb_2023_us_county_500k.shp") |>
+  clean_names()
+
+# Load 2020 election results
+results_2020 <- read_csv("data/mp04/all_county_election_results_2020.csv") |>
+  clean_names()
+
+# Load 2024 election results
+results_2024 <- read_csv("data/mp04/all_county_election_results_2024.csv") |>
+  clean_names()
+
+# Standardize names for merging
+results_2020 <- results_2020 |>
+  mutate(county = str_to_lower(str_remove_all(county, " county| parish| borough")),
+         state = str_to_lower(state))
+
+results_2024 <- results_2024 |>
+  mutate(county = str_to_lower(str_remove_all(county, " county| parish| borough")),
+         state = str_to_lower(state))
+
+county_shapes <- county_shapes |>
+  mutate(county = str_to_lower(str_remove_all(name, " county| parish| borough")),
+         state = str_to_lower(state_name))
+
+# Join election results to spatial data
+shapes_2020 <- left_join(county_shapes, results_2020, by = c("state", "county"))
+shapes_2024 <- left_join(county_shapes, results_2024, by = c("state", "county"))
+
+# Combine 2020 and 2024 data
+elections_combined <- full_join(
+  results_2020 |> rename_with(~paste0(.x, "_2020"), -c(county, state)),
+  results_2024 |> rename_with(~paste0(.x, "_2024"), -c(county, state)),
+  by = c("county", "state")
+)
+
+# Join combined results with shapefile
+shapes_combined <- left_join(county_shapes, elections_combined, by = c("county", "state"))
+
+# Preview the result
+glimpse(shapes_combined)
+```
+## Task 4: Initial Analysis Questions
+
+### 1.Which county or counties cast the most votes for Trump (in absolute terms) in 2024?
+::: {.justify style="text-align: justify;"}
+The result indicates that in the 2024 U.S. presidential election, Los Angeles County in California cast the highest number of votes for Donald Trump, with a total of 1,189,862 votes. This large figure reflects the county's massive population, not necessarily strong Republican dominance. Despite being a traditionally Democratic-leaning area, Los Angeles’ sheer size means even minority support can result in high absolute vote counts.
+:::
+
+```{r}
+#| code-fold: true
+#| warning: false
+#| message: false
+# Convert Trump vote count column to numeric if it's not already
+# (Skip this if it's already numeric, just here for robustness)
+if (!is.numeric(shapes_combined$donald_trump_republican_2024)) {
+  shapes_combined <- shapes_combined |>
+    mutate(donald_trump_republican_2024 = readr::parse_number(donald_trump_republican_2024))
+}
+
+# Find the county or counties with the highest Trump vote count in 2024
+top_trump_counties_2024 <- shapes_combined |>
+  filter(!is.na(donald_trump_republican_2024)) |>
+  arrange(desc(donald_trump_republican_2024)) |>
+  slice_max(donald_trump_republican_2024, n = 1) |>
+  select(state, county, donald_trump_republican_2024, geometry)
+
+# Display the result in a clean kable table
+top_trump_counties_2024 |>
+  st_drop_geometry() |>
+  mutate(
+    state = str_to_title(state),
+    county = str_to_title(county),
+    donald_trump_republican_2024 = comma(donald_trump_republican_2024)
+  ) |>
+  kable(
+    caption = "County with the Most Votes for Donald Trump in 2024",
+    col.names = c("State", "County", "Trump Votes (2024)"),
+    align = "lcl",
+    format = "html"
+  ) |>
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed"),
+    full_width = FALSE,
+    position = "center"
+  )
+```
+
+### 2.Which county or counties cast the most votes for Biden (as a fraction of total votes cast) in 2020?
+
+::: {.justify style="text-align: justify;"}
+The result shows that in the 2020 U.S. presidential election, Kalawao County in Hawaii cast the highest proportion of its total votes for Joe Biden with 95.8% support. Although this percentage is the highest nationally, it reflects results from a very small voting population. This highlights how smaller counties can show extremely high vote shares even when the absolute number of votes is low.
+:::
+
+```{r}
+#| code-fold: true
+#| warning: false
+#| message: false
+#Convert columns to numeric if needed
+if (!is.numeric(shapes_combined$joe_biden_democratic_2020)) {
+  shapes_combined <- shapes_combined |>
+    mutate(joe_biden_democratic_2020 = parse_number(joe_biden_democratic_2020))
+}
+
+if (!is.numeric(shapes_combined$total_votes_cast_2020)) {
+  shapes_combined <- shapes_combined |>
+    mutate(total_votes_cast_2020 = parse_number(total_votes_cast_2020))
+}
+
+#Compute Biden's share of total votes
+shapes_combined <- shapes_combined |>
+  mutate(biden_vote_percentage_2020 = (joe_biden_democratic_2020 / total_votes_cast_2020) * 100)
+
+#Identify county or counties with the highest Biden vote share
+top_biden_counties_2020 <- shapes_combined |>
+  filter(!is.na(biden_vote_percentage_2020)) |>
+  arrange(desc(biden_vote_percentage_2020)) |>
+  slice_max(biden_vote_percentage_2020, n = 1) |>
+  select(state, county, biden_vote_percentage_2020, geometry)
+
+#Display results in a formatted table
+top_biden_counties_2020 |>
+  st_drop_geometry() |>
+  mutate(
+    state = str_to_title(state),
+    county = str_to_title(county),
+    biden_vote_percentage_2020 = percent(biden_vote_percentage_2020 / 100, accuracy = 0.1)
+  ) |>
+  kable(
+    caption = "County with the Highest Percentage of Votes for Joe Biden in 2020",
+    col.names = c("State", "County", "Biden Vote Percentage (2020)"),
+    align = "lcl",
+    format = "html"
+  ) |>
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed"),
+    full_width = FALSE,
+    position = "center"
+  )
+```
+
+### 3.Which county or counties had the largest shift towards Trump (in absolute terms) in 2024?
+
+::: {.justify style="text-align: justify;"}
+In the 2024 U.S. Presidential Election, Los Angeles County in California recorded the largest increase in votes for Donald Trump compared to 2020. Trump received 44,332 more votes in 2024 than he did in 2020, rising from 1,145,530 votes to 1,189,862 votes. This shift indicates a notable gain in support for Trump in the nation’s most populous county.
+:::
+
+```{r}
+#| code-fold: true
+#| warning: false
+#| message: false
+# Ensure both Trump vote columns are numeric
+if (!is.numeric(shapes_combined$donald_trump_republican_2020)) {
+  shapes_combined <- shapes_combined |>
+    mutate(donald_trump_republican_2020 = parse_number(donald_trump_republican_2020))
+}
+
+if (!is.numeric(shapes_combined$donald_trump_republican_2024)) {
+  shapes_combined <- shapes_combined |>
+    mutate(donald_trump_republican_2024 = parse_number(donald_trump_republican_2024))
+}
+
+# Calculate absolute vote gain for Trump
+shapes_combined <- shapes_combined |>
+  mutate(shift_to_trump = donald_trump_republican_2024 - donald_trump_republican_2020)
+
+# Find the county or counties with the largest gain
+largest_trump_shift <- shapes_combined |>
+  filter(!is.na(shift_to_trump)) |>
+  arrange(desc(shift_to_trump)) |>
+  slice_max(shift_to_trump, n = 1) |>
+  select(state, county, donald_trump_republican_2020, donald_trump_republican_2024, shift_to_trump)
+
+# Display final result in clean HTML table
+largest_trump_shift |>
+  st_drop_geometry() |>
+  mutate(
+    state = str_to_title(state),
+    county = str_to_title(county),
+    donald_trump_republican_2020 = comma(donald_trump_republican_2020),
+    donald_trump_republican_2024 = comma(donald_trump_republican_2024),
+    shift_to_trump = comma(shift_to_trump)
+  ) |>
+  kable(
+    caption = "County with the Largest Shift towards Trump 2024",
+    col.names = c("State", "County", "Trump Votes 2020", "Trump Votes 2024", "Vote Gain"),
+    align = "lclrr",
+    format = "html"
+  ) |>
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed"),
+    full_width = FALSE,
+    position = "center"
+  )
+```
+
+### 4.Which state had the largest shift towards Harris (or smallest shift towards Trump) in 2024?
+::: {.justify style="text-align: justify;"}
+The results shows that Florida experienced the largest shift in vote margin toward Kamala Harris in the 2024 U.S. Presidential Election. The shift in margin was approximately 371,686 votes in her favor.
+:::
+
+```{r}
+#| code-fold: true
+#| warning: false
+#| message: false
+# Ensure vote columns are numeric only if needed
+if (!is.numeric(shapes_combined$donald_trump_republican_2020)) {
+  shapes_combined <- shapes_combined |>
+    mutate(donald_trump_republican_2020 = parse_number(donald_trump_republican_2020))
+}
+
+if (!is.numeric(shapes_combined$donald_trump_republican_2024)) {
+  shapes_combined <- shapes_combined |>
+    mutate(donald_trump_republican_2024 = parse_number(donald_trump_republican_2024))
+}
+
+if (!is.numeric(shapes_combined$joe_biden_democratic_2020)) {
+  shapes_combined <- shapes_combined |>
+    mutate(joe_biden_democratic_2020 = parse_number(joe_biden_democratic_2020))
+}
+
+if (!is.numeric(shapes_combined$kamala_harris_democratic_2024)) {
+  shapes_combined <- shapes_combined |>
+    mutate(kamala_harris_democratic_2024 = parse_number(kamala_harris_democratic_2024))
+}
+
+
+# Group by state and calculate margins
+state_shift <- shapes_combined |>
+  group_by(state) |>
+  summarise(
+    trump_2020 = sum(donald_trump_republican_2020, na.rm = TRUE),
+    trump_2024 = sum(donald_trump_republican_2024, na.rm = TRUE),
+    biden_2020 = sum(joe_biden_democratic_2020, na.rm = TRUE),
+    harris_2024 = sum(kamala_harris_democratic_2024, na.rm = TRUE)
+  ) |>
+  mutate(
+    margin_2020 = biden_2020 - trump_2020,
+    margin_2024 = harris_2024 - trump_2024,
+    shift_to_harris = margin_2024 - margin_2020
+  )
+
+# Identify the state with the largest shift toward Harris
+top_state_shift <- state_shift |>
+  arrange(desc(shift_to_harris)) |>
+  slice_max(shift_to_harris, n = 1) |>
+  mutate(
+    state = str_to_title(state),
+    shift_to_harris = comma(shift_to_harris)
+  )
+
+# Display result
+top_state_shift |>
+  st_drop_geometry() |>
+  select(state, shift_to_harris) |>
+  kable(
+    caption = "State with the Largest Shift Toward Kamala Harris 2024",
+    col.names = c("State", "Vote Margin Shift Toward Harris"),
+    align = "lc",
+    format = "html"
+  ) |>
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed"),
+    full_width = FALSE,
+    position = "center"
+  )
+```
+
+### 5.What is the largest county, by area, in this data set?
+::: {.justify style="text-align: justify;"}
+The table shows that Yukon-Koyukuk County in Alaska is the largest county by land area in the dataset, covering approximately 377,055,293,513 square meters. This is consistent with known geography, as Yukon-Koyukuk is widely recognized as the largest county-equivalent in the U.S. by land area
+:::
+
+```{r}
+#| code-fold: true
+#| warning: false
+#| message: false
+# Find the largest county by land area
+largest_county_area <- shapes_combined |>
+  filter(!is.na(aland)) |>
+  arrange(desc(aland)) |>
+  slice_max(aland, n = 1) |>
+  select(state, county, aland)
+
+# Display in clean table
+largest_county_area |>
+  st_drop_geometry() |>
+  mutate(
+    state = str_to_title(state),
+    county = str_to_title(county),
+    aland = scales::comma(aland)
+  ) |>
+  kable(
+    caption = "Largest County by Land Area",
+    col.names = c("State", "County", "Land Area (sq meters)"),
+    align = "lcl",
+    format = "html"
+  ) |>
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed"),
+    full_width = FALSE,
+    position = "center"
+  )
+```
+
+### 6.Which county has the highest voter density (voters per unit of area) in 2020?
+::: {.justify style="text-align: justify;"}
+The results reveal that in 2020 elections, New York County had the highest concentration of voters relative to its land size with a voter density of 0.01. This reflects the dense urban environment and high voter participation in a small geographic area.
+:::
+
+```{r}
+#| code-fold: true
+#| warning: false
+#| message: false
+# Ensure land area and total votes are numeric
+if (!is.numeric(shapes_combined$aland)) {
+  shapes_combined <- shapes_combined |>
+    mutate(aland = parse_number(aland))
+}
+if (!is.numeric(shapes_combined$total_votes_cast_2020)) {
+  shapes_combined <- shapes_combined |>
+    mutate(total_votes_cast_2020 = parse_number(total_votes_cast_2020))
+}
+
+# Calculate voter density (votes per square meter)
+shapes_combined <- shapes_combined |>
+  mutate(voter_density_2020 = total_votes_cast_2020 / aland)
+
+# Identify county with highest voter density
+highest_density <- shapes_combined |>
+  filter(!is.na(voter_density_2020)) |>
+  arrange(desc(voter_density_2020)) |>
+  slice_max(voter_density_2020, n = 1) |>
+  select(state, county, total_votes_cast_2020, aland, voter_density_2020)
+
+# Display formatted table
+highest_density |>
+  st_drop_geometry() |>
+  mutate(
+    state = str_to_title(state),
+    county = str_to_title(county),
+    total_votes_cast_2020 = comma(total_votes_cast_2020),
+    aland = comma(aland),
+    voter_density_2020 = comma(voter_density_2020, accuracy = 0.01)
+  ) |>
+  kable(
+    caption = "County with the Highest Voter Density in 2020",
+    col.names = c("State", "County", "Total Votes (2020)", "Land Area (sq meters)", "Voter Density (votes/sq m)"),
+    align = "lclrr",
+    format = "html"
+  ) |>
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed"),
+    full_width = FALSE,
+    position = "center"
+  )
+```
+
+### 7.Which county had the largest increase in voter turnout in 2024?
+::: {.justify style="text-align: justify;"}
+Between the 2020 and 2024 presidential elections, Montgomery County in Texas experienced the largest increase in voter turnout across all U.S. counties in the dataset. The total number of votes cast rose from 271,543 in 2020 to 307,258 in 2024, reflecting an increase of 35,715 votes. 
+:::
+
+```{r}
+#| code-fold: true
+#| warning: false
+#| message: false
+# Convert total vote counts to numeric if not already
+if (!is.numeric(shapes_combined$total_2020)) {
+  shapes_combined <- shapes_combined |>
+    mutate(total_2020 = parse_number(total_2020))
+}
+
+if (!is.numeric(shapes_combined$total_2024)) {
+  shapes_combined <- shapes_combined |>
+    mutate(total_2024 = parse_number(total_2024))
+}
+
+# Calculate change in turnout
+shapes_combined <- shapes_combined |>
+  mutate(turnout_change = total_2024 - total_2020)
+
+# Identify county with largest increase
+largest_turnout_increase <- shapes_combined |>
+  filter(!is.na(turnout_change)) |>
+  arrange(desc(turnout_change)) |>
+  slice_max(turnout_change, n = 1) |>
+  select(state, county, total_2020, total_2024, turnout_change)
+
+# Display result in formatted table
+largest_turnout_increase |>
+  st_drop_geometry() |>
+  mutate(
+    state = str_to_title(state),
+    county = str_to_title(county),
+    total_2020 = comma(total_2020),
+    total_2024 = comma(total_2024),
+    turnout_change = comma(turnout_change)
+  ) |>
+  kable(
+    caption = "County with the Largest Increase in Voter Turnout  2024",
+    col.names = c("State", "County", "Votes in 2020", "Votes in 2024", "Increase in Turnout"),
+    align = "lclrr",
+    format = "html"
+  ) |>
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed"),
+    full_width = FALSE,
+    position = "center"
+  )
+```
+
+
