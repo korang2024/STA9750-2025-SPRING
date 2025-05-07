@@ -142,6 +142,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <li><a href="#task-1-us-county-shapefiles" id="toc-task-1-us-county-shapefiles" class="nav-link" data-scroll-target="#task-1-us-county-shapefiles">Task 1: US County Shapefiles</a></li>
   <li><a href="#task-2-acquire-2024-us-presidential-election-results" id="toc-task-2-acquire-2024-us-presidential-election-results" class="nav-link" data-scroll-target="#task-2-acquire-2024-us-presidential-election-results">Task 2: Acquire 2024 US Presidential Election Results</a></li>
   <li><a href="#task-3-acquire-2020-us-presidential-election-results" id="toc-task-3-acquire-2020-us-presidential-election-results" class="nav-link" data-scroll-target="#task-3-acquire-2020-us-presidential-election-results">Task 3: Acquire 2020 US Presidential Election Results</a></li>
+  </ul></li>
   <li><a href="#task-4-initial-analysis-questions" id="toc-task-4-initial-analysis-questions" class="nav-link" data-scroll-target="#task-4-initial-analysis-questions">Task 4: Initial Analysis Questions</a>
   <ul class="collapse">
   <li><a href="#which-county-or-counties-cast-the-most-votes-for-trump-in-absolute-terms-in-2024" id="toc-which-county-or-counties-cast-the-most-votes-for-trump-in-absolute-terms-in-2024" class="nav-link" data-scroll-target="#which-county-or-counties-cast-the-most-votes-for-trump-in-absolute-terms-in-2024">1.Which county or counties cast the most votes for Trump (in absolute terms) in 2024?</a></li>
@@ -151,7 +152,6 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <li><a href="#what-is-the-largest-county-by-area-in-this-data-set" id="toc-what-is-the-largest-county-by-area-in-this-data-set" class="nav-link" data-scroll-target="#what-is-the-largest-county-by-area-in-this-data-set">5.What is the largest county, by area, in this data set?</a></li>
   <li><a href="#which-county-has-the-highest-voter-density-voters-per-unit-of-area-in-2020" id="toc-which-county-has-the-highest-voter-density-voters-per-unit-of-area-in-2020" class="nav-link" data-scroll-target="#which-county-has-the-highest-voter-density-voters-per-unit-of-area-in-2020">6.Which county has the highest voter density (voters per unit of area) in 2020?</a></li>
   <li><a href="#which-county-had-the-largest-increase-in-voter-turnout-in-2024" id="toc-which-county-had-the-largest-increase-in-voter-turnout-in-2024" class="nav-link" data-scroll-target="#which-county-had-the-largest-increase-in-voter-turnout-in-2024">7.Which county had the largest increase in voter turnout in 2024?</a></li>
-  </ul></li>
   </ul></li>
   </ul>
 </nav>
@@ -197,7 +197,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </div>
 <section id="executive-summary" class="level1 justify" style="text-align: justify;">
 <h1>Executive Summary</h1>
-<p>This project explores changes in U.S. county-level voting behavior between the 2020 and 2024 Presidential elections. Election results were scraped from Wikipedia due to inconsistencies in official state election websites and official county boundary shapefiles were obtained from the U.S. Census Bureau. Key findings from the analysis include both absolute and proportional changes in voting patterns, turnout and geographic characteristics. Some counties recorded large gains in Republican votes while others showed strong Democratic support, particularly in smaller or urban areas. The results highlight the complexity of interpreting nationwide electoral trends based solely on visual maps.</p>
+<p>This project explores changes in U.S. county-level voting behavior between the 2020 and 2024 Presidential elections. Election results were scraped from Wikipedia due to inconsistencies in official state election websites and official county boundary shapefiles were obtained from the U.S. Census Bureau. Key findings from the analysis include both absolute and proportional changes in voting patterns, turnout and geographic characteristics.</p>
 </section>
 <section id="highlights-of-key-findings" class="level1 justify" style="text-align: justify;">
 <h1>Highlights of Key Findings</h1>
@@ -214,7 +214,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="introduction" class="level1">
 <h1>Introduction</h1>
 <div class="justify" style="text-align: justify;">
-<p>After the 2024 U.S. Presidential election, The New York Times published a map suggesting that many counties across the United States had shifted toward the Republican party compared to 2020. This visual quickly spread online and shaped public discussions around a possible nationwide political “vibe shift.” This project aims to investigate the changes in vote shares between the 2020 and 2024 presidential elections at the county level as well as recreate and evaluate the original map. Data on election results at the county-level was collected for both years from Wikipedia pages for each state. While not a primary source, Wikipedia provided a reliable and practical alternative due to the challenges of collecting data from official state websites, which are often inconsistent and difficult to automate. For mapping, the U.S. county boundary shapefiles from the U.S. Census Bureau’s Cartographic Boundary Files (2023) was used and the finest available resolution (1:500,000) was selected to ensure high-quality geographic visualizations. By combining cleaned election results with accurate county shapes, the shift in Republican vote share in each county was calculated and visualized using tools in R. This project offers a data-driven look at whether the supposed nationwide political shift is supported by the numbers and where that shift, if any, was most pronounced.</p>
+<p>After the 2024 U.S. Presidential election, The New York Times published a map suggesting that many counties across the United States had shifted toward the Republican party compared to 2020. This visual quickly spread online and shaped public discussions around a possible nationwide political “vibe shift.” This project aims to investigate the changes in vote shares between the 2020 and 2024 presidential elections at the county level as well as recreate and evaluate the original map.</p>
+<p>Data on election results at the county-level was collected for both years from Wikipedia pages for each state. While not a primary source, Wikipedia provided a reliable and practical alternative due to the challenges of collecting data from official state websites, which are often inconsistent and difficult to automate. For mapping, the U.S. county boundary shapefiles from the U.S. Census Bureau’s Cartographic Boundary Files (2023) was used and the finest available resolution (1:500,000) was selected to ensure high-quality geographic visualizations. By combining cleaned election results with accurate county shapes, the shift in Republican vote share in each county was calculated and visualized using tools in R. This project offers a data-driven look at whether the supposed nationwide political shift is supported by the numbers and where that shift, if any, was most pronounced.</p>
 </div>
 </section>
 <section id="data-aquisition" class="level1">
@@ -468,8 +469,9 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </details>
 </div>
 </section>
-<section id="task-4-initial-analysis-questions" class="level2">
-<h2 class="anchored" data-anchor-id="task-4-initial-analysis-questions">Task 4: Initial Analysis Questions</h2>
+</section>
+<section id="task-4-initial-analysis-questions" class="level1">
+<h1>Task 4: Initial Analysis Questions</h1>
 <section id="which-county-or-counties-cast-the-most-votes-for-trump-in-absolute-terms-in-2024" class="level3">
 <h3 class="anchored" data-anchor-id="which-county-or-counties-cast-the-most-votes-for-trump-in-absolute-terms-in-2024">1.Which county or counties cast the most votes for Trump (in absolute terms) in 2024?</h3>
 <div class="justify" style="text-align: justify;">
@@ -994,7 +996,6 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </div>
 
 
-</section>
 </section>
 </section>
 

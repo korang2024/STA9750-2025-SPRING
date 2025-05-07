@@ -27,7 +27,7 @@ library(scales)
 ```
 ::: {.justify style="text-align: justify;"}
 # Executive Summary
-This project explores changes in U.S. county-level voting behavior between the 2020 and 2024 Presidential elections. Election results were scraped from Wikipedia due to inconsistencies in official state election websites and official county boundary shapefiles were obtained from the U.S. Census Bureau. Key findings from the analysis include both absolute and proportional changes in voting patterns, turnout and geographic characteristics. Some counties recorded large gains in Republican votes while others showed strong Democratic support, particularly in smaller or urban areas. The results highlight the complexity of interpreting nationwide electoral trends based solely on visual maps.
+This project explores changes in U.S. county-level voting behavior between the 2020 and 2024 Presidential elections. Election results were scraped from Wikipedia due to inconsistencies in official state election websites and official county boundary shapefiles were obtained from the U.S. Census Bureau. Key findings from the analysis include both absolute and proportional changes in voting patterns, turnout and geographic characteristics. 
 :::
 
 ::: {.justify style="text-align: justify;"}
@@ -51,6 +51,7 @@ Montgomery County, Texas saw the biggest rise in total votes cast, increasing by
 # Introduction
 ::: {.justify style="text-align: justify;"}
 After the 2024 U.S. Presidential election, The New York Times published a map suggesting that many counties across the United States had shifted toward the Republican party compared to 2020. This visual quickly spread online and shaped public discussions around a possible nationwide political “vibe shift.” This project aims to investigate the changes in vote shares between the 2020 and 2024 presidential elections at the county level as well as recreate and evaluate the original map. 
+
 Data on election results at the county-level was collected for both years from Wikipedia pages for each state. While not a primary source, Wikipedia provided a reliable and practical alternative due to the challenges of collecting data from official state websites, which are often inconsistent and difficult to automate. For mapping, the U.S. county boundary shapefiles from the U.S. Census Bureau’s Cartographic Boundary Files (2023) was used and the finest available resolution (1:500,000) was selected to ensure high-quality geographic visualizations.
 By combining cleaned election results with accurate county shapes, the shift in Republican vote share in each county was calculated and visualized using tools in R. This project offers a data-driven look at whether the supposed nationwide political shift is supported by the numbers and where that shift, if any, was most pronounced.
 :::
@@ -307,7 +308,7 @@ shapes_combined <- left_join(county_shapes, elections_combined, by = c("county",
 # Preview the result
 glimpse(shapes_combined)
 ```
-## Task 4: Initial Analysis Questions
+# Task 4: Initial Analysis Questions
 
 ### 1.Which county or counties cast the most votes for Trump (in absolute terms) in 2024?
 ::: {.justify style="text-align: justify;"}
