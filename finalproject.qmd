@@ -1,0 +1,1559 @@
+---
+title: "Noise in the Neighborhoods: A Socioeconomic Analysis of 311 Complaints in NYC"
+format:
+  html:
+    toc: true
+    toc-location: right
+    toc-title: "On this page"
+    css: styles.css
+---
+
+```{r}
+#| code-fold: true
+#| warning: false
+#| message: false
+#| results: 'hide'
+# Load libraries
+library(tidyverse)
+library(knitr)
+library(kableExtra)
+library(lubridate)
+library(jsonlite)
+library(purrr)
+library(httr2 )
+library(rvest)
+library(janitor)
+library(sf)
+library(scales)
+library(patchwork)
+library(viridis)
+library(readxl)
+library(forcats)
+library(biscale)
+```
+# Introduction
+::: {.justify style="text-align: justify;"}
+There are many types of pollution that affect the environment including land degradation, air pollution, water pollution and noise pollution. Among these, noise pollution is often overlooked as a serious environmental issue with greater attention typically being paid to other sources of pollution. However, exposure to excessive noise has been linked to a range of health issues such as hearing loss, sleep deprivation and elevated stress levels. For example, Ma et al. (2018) revealed that in China, many middle-aged individuals suffer from mental health disorders while some older adults report sleep disturbances due to noise exposure. Psychological effects can also include impaired cognitive functioning, discomfort and increased social isolation (Hemmat, 2023).
+
+Noise pollution does not only affect humans, it can also disrupt wildlife ecosystems in ways that hinder social and reproductive activities (Seker et al.). Bats for instance, have shown reduced foraging and drinking behaviors when exposed to noise (Domer et al., 2021), and reef fish display behavioral changes in polluted coastal regions (Leduc et al., 2021). Even plant life can experience harmful ecological effects from noise as highlighted by Phillips et al. (2021).
+Influenced by social factors and personal disturbance, individuals or communities often respond to excessive noise by filing complaints (Zambon et al., 2020). Several studies have investigated variations in noise complaints, especially during the COVID-19 pandemic. While Yildirim and Arefi (2021) reported a decrease in complaints during this period, others such as Ramphal et al. (2022) and Trudeau et al. (2023) noted an increase. Lee and Jeong (2021), for instance, found that noise complaints on social media, particularly Twitter, doubled during lockdowns compared to the previous year. Ramphal et al. (2022) investigated the pattern of noise complaints in New York between 2010 and 2021 and revealed that noise complaints were higher in low-income communities. These mixed findings suggest that patterns of noise complaints may be influenced by a range of contextual factors, including geographic location, socioeconomic status, policing activity, local incidents such as shootings and temporal dynamics.
+
+As awareness of the harmful effects of noise pollution grows, so too has the number of complaints filed by residents. In 2024, noise complaints were the most common 311 non-emergency issue in New York City, with over 700,000 reports filed. On average, the city received more than 2,000 noise-related calls per day, underscoring its prominence as a public concern. While previous studies have examined noise complaints in relation to specific events such as the COVID-19 pandemic or focused on general temporal trends, few have systematically investigated how socioeconomic characteristics influence the spatial distribution of these complaints at the neighborhood level especially in New York City. This report addresses this gap by exploring the relationship between socioeconomic factors and the frequency of 311 noise complaints in New York City neighborhoods. The central research question guiding this study is: How are socioeconomic factors associated with the frequency and spatial distribution of noise complaints across NYC neighborhoods?
+:::
+
+# Literature Review
+::: {.justify style="text-align: justify;"}
+Several socio-economic indicators may influence the frequency and distribution of noise complaints. One of these socio-economic factors is the income level of residents in a community. For example, Ramphal et al (2022) using a linear mixed effects model to investigate the pattern of noise complaints in New York between 2010 and 2021 revealed that noise complaints were higher low-income communities. During the coronavirus pandemic which the study period covers, it must be noted that there was a rise in noise complaints in these lower-income communities.
+
+Another study by Tong and Kang (2021) examine the impact of various socio-economic factors have on noise complaints in England. Using a correlation analysis, the study looked at how demographic factors, job related factors, property factors and deprivation factors influence the level of noise complaints. With regards to demographic factors, it was revealed that while population density has a positive relationship with noise complaints, age has a negative impact on noise complaints. In terms of job-related factors, the higher the number of unemployed people in an area, the higher the number of noise complaints. Additionally, in an area where the number of unemployed females is higher than unemployed males, noise complaints rise. However, there is the number of retirees and the level of noise complaints are negatively related. In relation to property factors, ownership of property such as cars or vans has a negative relationship with noise complaints. Deprivation factors examined how the access to or lack of basic amenities such as health, housing, income and employment affect the number of complaints. It was found out that the higher the level of deprivation of a city or area, the higher the number of noise complaints.
+
+Exposure to noise may be responsible for the incidence of noise complaints based on socio-economic factors. In Montreal for instance, Dale et al (2015) found out more low-income households were exposed to the highest-level noise compared to their higher income counterparts. This indicates people of lower economic status may be more exposed to (high) noise.  Casey et al (2017) confirms this assertion with the study provided evidence of the existence of racial inequities in noise exposure in the United States. Their study revealed that areas with more non-white residents recorded higher noise levels compared with less non-white residents. In the United States for instances, these non-white residents such as Hispanics, blacks and other working-class residents are exposed to transport noise from roads and aviation (Collins et al, 2020). This finding was the same for urban areas as well as suburban or rural areas. In contrast to evidence found in the United States and other similar studies, Zhang et al (2024) found out that wealthier communities are more exposed to higher noise levels compared with their more impoverished counterparts. This may be explained by rapid urbanization that is occurring in China.
+:::
+
+# Data and Methods
+## Data Aquisition
+::: {.justify style="text-align: justify;"}
+The 311 noise complaint data for 2022 and the latest New York City Neighborhood Tabulation Area (NTA) shapefiles were obtained from the NYC Open Data Portal NYC. The 311 dataset was cleaned by removing records with missing or invalid geographic coordinates, filtering for valid NYC latitude and longitude ranges, converting it to a spatial (sf) object and transforming its coordinate reference system to match the NTA shapefile. The Wakefield-Woodlawn neighborhood was excluded due to its outlier status with an unusually high volume of complaints from a single location. Additionally, American Community Survey (ACS) 5-year estimates were sourced from the NYC Department of City Planning, joined to the NTA boundaries and later merged with the cleaned 311 data to facilitate socioeconomic and spatial correlation analysis.
+:::
+```{r}
+#| code-fold: true
+#| warning: false
+#| message: false
+#| results: 'hide'
+#Create 'data/finalproject' directory if it doesn't already exist
+if (!dir.exists("data/finalproject")) {
+  dir.create("data/finalproject", recursive = TRUE)
+  message("data/finalproject' directory created.")
+} else {
+  message("ℹ️ 'data/finalproject' directory already exists.")
+}
+
+
+# Read noise complaints data
+data_311<-read_csv("C:/Users/Admin/Desktop/Baruch/Spring Classes/Basic Software Tools/STA9750-2025-SPRING/data/finalproject/311_Noise_Complaints_2022.csv")
+
+# Read ACS datasets 
+dem_df  <- read_excel("C:/Users/Admin/Desktop/Baruch/Spring Classes/Basic Software Tools/STA9750-2025-SPRING/data/finalproject/Dem_1822_NTA_2022.xlsx")
+econ_df <- read_excel("C:/Users/Admin/Desktop/Baruch/Spring Classes/Basic Software Tools/STA9750-2025-SPRING/data/finalproject/Econ_1822_NTA_2022.xlsx")
+hous_df <- read_excel("C:/Users/Admin/Desktop/Baruch/Spring Classes/Basic Software Tools/STA9750-2025-SPRING/data/finalproject/Hous_1822_NTA_2022.xlsx")
+soc_df  <- read_excel("C:/Users/Admin/Desktop/Baruch/Spring Classes/Basic Software Tools/STA9750-2025-SPRING/data/finalproject/Soc_1822_NTA_2022.xlsx")
+
+names(dem_df)
+names(econ_df)
+names(hous_df)
+names(soc_df)
+
+#merge datastes using GeoID as the key
+acs_df <- dem_df |>
+  left_join(econ_df, by = "GeoID") |>
+  left_join(hous_df, by = "GeoID") |>
+  left_join(soc_df, by = "GeoID")
+
+# Quick look at merged data
+dim(acs_df)
+
+#Load Shapefile
+nyc_map <- st_read("C:/Users/Admin/Desktop/Baruch/Spring Classes/Basic Software Tools/STA9750-2025-SPRING/data/finalproject/NYC_Neighborhood_Tabulation_Areas_2020/NYC_Neighborhood_Tabulation_Areas_2020.shp")
+
+names(nyc_map)
+length(unique(nyc_map$NTA2020))
+length(unique(acs_df$GeoID))
+
+#Checking if NTA2020 and GeoID mtach in both datasets
+setequal(unique(nyc_map$NTA2020), unique(acs_df$GeoID))
+
+#Joining shapefile with ACS data
+nyc_map_acs_joined <- nyc_map |>
+  left_join(acs_df, by = c("NTA2020" = "GeoID"))
+
+#Combining 311 data and NTA shape file
+#Clean and convert 311 data to sf object with matching CRS (EPSG:2263)
+data_311_sf <- data_311 |>
+  filter(!is.na(Longitude), !is.na(Latitude)) |>
+  mutate(
+    Longitude = as.numeric(Longitude),
+    Latitude = as.numeric(Latitude)
+  ) |>
+  filter(
+    between(Latitude, 40.49, 40.92),
+    between(Longitude, -74.27, -73.68)
+  ) |>
+  st_as_sf(coords = c("Longitude", "Latitude"), crs = 4326) |>
+  st_transform(crs = 2263)  # match nyc_map CRS
+
+#Spatial join — attach NTA attributes from nyc_map to each 311 complaint
+data_311_with_nta <- st_join(data_311_sf, nyc_map, left = FALSE)
+
+# Preview result
+head(data_311_with_nta)
+names(data_311_with_nta)
+st_crs(data_311_with_nta)
+
+# Aggregate noise complaints by NTA 
+noise_by_nta <- data_311_with_nta |>
+  st_drop_geometry() |>
+  count(NTA2020, name = "noise_count")
+
+# Join to ACS + NTA shapefile
+final_data <- nyc_map_acs_joined |>
+  left_join(noise_by_nta, by = "NTA2020")
+```
+
+## Methods
+::: {.justify style="text-align: justify;"}
+After cleaning all datasets, assigning observations to Neighborhood Tabulation Areas (NTAs) and merging the data for analysis, an initial exploratory phase was conducted. This included mapping the spatial distribution of key socioeconomic variables such as age, gender, education, housing characteristics, poverty, income level and employment status. In parallel, the distribution of noise complaints across New York City was explored using bar charts, choropleth maps, and boxplots to highlight variation by neighborhood and borough.
+To investigate the study’s core questions, bivariate choropleth maps were employed to visually assess spatial associations between 311 noise complaint volumes and selected socioeconomic indicators. 
+:::
+
+# Exploratory Data Analysis (EDA)
+## Initial Exploration of ACS Data(Socioecomic factors)
+::: {.justify style="text-align: justify;"}
+The map shows that most NYC neighborhoods have a fairly balanced gender distribution, with male populations typically under 50%. However, a few neighborhoods, particularly in parts of the Bronx, Queens, Brooklyn and Staten Island have disproportionately high male populations. 
+:::
+```{r}
+#| code-fold: true
+#| warning: false
+#| message: false
+range_values <- range(c(nyc_map_acs_joined$MaleP, nyc_map_acs_joined$FemP), na.rm = TRUE)
+
+# Male Percentage Map
+ggplot(nyc_map_acs_joined) +
+  geom_sf(aes(fill = MaleP), color = "white", size = 0.1) +
+  scale_fill_viridis_c(
+    option = "plasma",
+    limits = range_values,
+    na.value = "grey90"
+  ) +
+  labs(
+    title = "Male Population (%) by Neighborhood",
+    fill = "% Male"
+  ) +
+  theme_void(base_size = 14) +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 18),
+    legend.title = element_text(size = 14),
+    legend.text = element_text(size = 12)
+  )
+```
+::: {.justify style="text-align: justify;"}
+The map shows that most neighborhoods in New York City have a female population above 50%, as indicated by the pink and orange shades. A few neighborhoods, shown in brighter yellow, have a notably higher percentage of females while darker areas reflect neighborhoods with comparatively lower female representation.
+:::
+
+```{r}
+#| code-fold: true
+#| warning: false
+#| message: false
+# Female Percentage Map
+ggplot(nyc_map_acs_joined) +
+   geom_sf(aes(fill = FemP), color = "white", size = 0.1) +
+   scale_fill_viridis_c(
+     option = "magma",
+     limits = range_values,
+     na.value = "grey90"
+   ) +
+   labs(
+     title = "Female Population (%) by Neighborhood",
+     fill = "% Female"
+   ) +
+   theme_void(base_size = 14) +  # removes grid, axes, background
+   theme(
+     plot.title = element_text(hjust = 0.5, face = "bold", size = 18),
+     legend.title = element_text(size = 14),
+     legend.text = element_text(size = 12)
+   )
+```
+
+::: {.justify style="text-align: justify;"}
+The map shows that neighborhoods with the oldest populations are located primarily in parts of Staten Island,Brooklyn and parts of Queens and Lower Manhattan. In contrast, neighborhoods with the youngest populations are concentrated in the Bronx, Central Brooklyn and Upper Manhattan.
+:::
+
+```{r}
+#| code-fold: true
+#| warning: false
+#| message: false
+#Median Age (MdAgeE) Neighbourhood map
+ggplot(nyc_map_acs_joined) +
+  geom_sf(aes(fill = MdAgeE), color = "white", size = 0.1) +
+  scale_fill_viridis_c(
+    option = "plasma",
+    limits = range(nyc_map_acs_joined$MdAgeE, na.rm = TRUE),
+    na.value = "grey90"
+  ) +
+  labs(
+    title = "Median Age by Neighborhood",
+    fill = "Median Age"
+  ) +
+  theme_void(base_size = 14) +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 18),
+    legend.title = element_text(size = 14),
+    legend.text = element_text(size = 12)
+  )
+```
+
+::: {.justify style="text-align: justify;"}
+This map reveals significant spatial inequality in poverty across NYC. Certain neighborhoods experience much higher poverty burdens compared to others.The highest poverty rates are concentrated in the Bronx, particularly in its Central and Northern neighborhoods as well as in parts of Upper Manhattan and Brooklyn. In contrast, the lowest poverty rates are found in most of Staten Island, Queens and parts of Manhattan.
+:::
+
+```{r}
+#| code-fold: true
+#| warning: false
+#| message: false
+#% Below Poverty
+# Calculate range (excluding NAs)
+fam_poverty_range <- range(nyc_map_acs_joined$FamBwPvP, na.rm = TRUE)
+
+# Plot the map
+ggplot(nyc_map_acs_joined) +
+  geom_sf(aes(fill = FamBwPvP), color = "white", size = 0.1) +
+  scale_fill_viridis_c(
+    option = "inferno",                # Color scheme
+    limits = fam_poverty_range,       # Consistent scale
+    na.value = "grey90",              # Color for NA areas
+    name = "% in Poverty (Persons)" # Legend title
+  ) +
+  labs(
+    title = "Percent of Population Below Poverty by Neighborhood"
+  ) +
+  theme_void(base_size = 14) +
+  theme(
+    plot.title = element_text(face = "bold", size = 15),
+    legend.title = element_text(size = 14),
+    legend.text = element_text(size = 12)
+  )
+```
+::: {.justify style="text-align: justify;"}
+The map shows that neighborhoods with the highest median household incomes are located primarily in Manhattan, southern parts of Staten Island and parts of Brooklyn and Queens, as indicated by the yellow and orange shades. In contrast, the lowest income areas—shaded in dark purple and black—are concentrated in the central Bronx, eastern Brooklyn and Upper Manhattan.
+:::
+
+```{r}
+#| code-fold: true
+#| warning: false
+#| message: false
+#Median Household Income by Neighborhood
+ggplot(nyc_map_acs_joined) +
+  geom_sf(aes(fill = MdHHIncE), color = "white", size = 0.1) +
+  scale_fill_viridis_c(
+    option = "inferno",
+    limits = range(nyc_map_acs_joined$MdHHIncE, na.rm = TRUE),
+    labels = scales::comma,
+    na.value = "grey90"
+  ) +
+  labs(
+    title = "Median Household Income by Neighborhood",
+    fill = "Household Income ($)"
+  ) +
+  theme_void(base_size = 14) +
+  theme(
+    plot.title = element_text( face = "bold", size = 15),
+    legend.title = element_text(size = 14),
+    legend.text = element_text(size = 12)
+  )
+```
+
+::: {.justify style="text-align: justify;"}
+The map below shows that most neighborhoods in New York City have moderate to high employment rates among residents, as indicated by the orange and red shades (generally 50%–75%).Highest employment areas are concentrated in parts of Manhattan, Queens and Staten Island, where over 75% of the eligible population is employed.Lowest employment rates (dark purple to black) are observed in select neighborhoods in the Bronx, Brooklyn and upper parts of Manhattan, where fewer than 50% of residents are employed.
+:::
+
+```{r}
+#| code-fold: true
+#| warning: false
+#| message: false
+#Percent of Population Employed by Neighborhood
+ggplot(nyc_map_acs_joined) +
+  geom_sf(aes(fill = CvEm16pl1P), color = "white", size = 0.1) +
+  scale_fill_viridis_c(
+    option = "inferno",
+    limits = range(nyc_map_acs_joined$CvEm16pl1P, na.rm = TRUE),
+    na.value = "grey90"
+  ) +
+  labs(
+    title = "Percent of Population Employed by Neighborhood",
+    fill = "% Employed"
+  ) +
+  theme_void(base_size = 14) +
+  theme(
+    plot.title = element_text(face = "bold", size = 15),
+    legend.title = element_text(size = 14),
+    legend.text = element_text(size = 12)
+  )
+```
+::: {.justify style="text-align: justify;"}
+The map below shows that most neighborhoods in New York City have relatively low unemployment rates, typically between 5% and 10%, as indicated by the dominant dark purple shading.Highest unemployment rates (orange to yellow areas, 20%–25% or more) are concentrated in northern parts of the Bronx and a few neighborhoods in upper Manhattan.Lowest unemployment areas (nearly black) are seen in much of Staten Island, southern Brooklyn and parts of Queens, where unemployment is below 5%.
+:::
+```{r}
+#| code-fold: true
+#| warning: false
+#| message: false
+#Percent of Population Unemployed by Neighborhood
+ggplot(nyc_map_acs_joined) +
+  geom_sf(aes(fill = CvLFUEm1P), color = "white", size = 0.1) +
+  scale_fill_viridis_c(
+    option = "inferno",
+    limits = range(nyc_map_acs_joined$CvLFUEm1P, na.rm = TRUE),
+    na.value = "grey90"
+  ) +
+  labs(
+    title = "Percent of Population Unemployed by Neighborhood",
+    fill = "% Unemployed"
+  ) +
+  theme_void(base_size = 14) +
+  theme(
+    plot.title = element_text(face = "bold", size = 14),
+    legend.title = element_text(size = 14),
+    legend.text = element_text(size = 12)
+  )
+```
+
+::: {.justify style="text-align: justify;"}
+The map below shows significant variation in homeownership across New York City neighborhoods. Highest owner-occupancy rates (orange to yellow areas, 75%–100%) are found in Staten Island, where homeownership is predominant, Eastern parts Queens and parts of southeastern Brooklyn, reflecting more suburban-style residential patterns. Lowest owner-occupancy rates (dark purple to black, below 25%) are concentrated in Manhattan, the Bronx and central Brooklyn, areas typically dominated by rental housing and multifamily units.
+:::
+
+```{r}
+#| code-fold: true
+#| warning: false
+#| message: false
+#Percent of Owner-Occupied Housing by Neighborhood
+ggplot(nyc_map_acs_joined) +
+  geom_sf(aes(fill = OOcHU1P), color = "white", size = 0.1) +
+  scale_fill_viridis_c(
+    option = "inferno",
+    limits = range(nyc_map_acs_joined$OOcHU1P, na.rm = TRUE),
+    na.value = "grey90"
+  ) +
+  labs(
+    title = "Percent of Owner-Occupied Housing by Neighborhood",
+    fill = "% Owner-Occupied"
+  ) +
+  theme_void(base_size = 14) +
+  theme(
+    plot.title = element_text(face = "bold", size = 14),
+    legend.title = element_text(size = 14),
+    legend.text = element_text(size = 12)
+  )
+```
+::: {.justify style="text-align: justify;"}
+This map below reveals that renter-occupied housing dominates many neighborhoods across New York City, particularly in the Bronx, Upper Manhattan and large portions of Brooklyn and central Queens, which are shown in orange and yellow, indicating renter rates above 75%. These areas reflect dense urban housing markets with high concentrations of rental units and multifamily dwellings. In contrast, lower renter-occupancy rates (dark purple areas) are found in Staten Island, eastern parts of Queens and parts of southern Brooklyn, where less than 25–50% of housing is renter-occupied. These areas tend to have higher rates of homeownership and more single-family homes.
+:::
+```{r}
+#| code-fold: true
+#| warning: false
+#| message: false
+#Percent of Renter-Occupied Housing by Neighborhood
+ggplot(nyc_map_acs_joined) +
+  geom_sf(aes(fill = ROcHU1P), color = "white", size = 0.1) +
+  scale_fill_viridis_c(
+    option = "inferno",
+    limits = range(nyc_map_acs_joined$ROcHU1P, na.rm = TRUE),
+    na.value = "grey90"
+  ) +
+  labs(
+    title = "Percent of Renter-Occupied Housing by Neighborhood",
+    fill = "% Renter-Occupied"
+  ) +
+  theme_void(base_size = 14) +
+  theme(
+    plot.title = element_text(face = "bold", size = 14),
+    legend.title = element_text(size = 14),
+    legend.text = element_text(size = 12)
+  )
+```
+::: {.justify style="text-align: justify;"}
+The map below shows that educational attainment varies significantly by neighborhood across New York City.Highest concentrations of residents without a high school diploma (30%–45%, shown in orange and yellow) are found in Northern Bronx, East Brooklyn and parts of Queens neighborhoods.Lowest percentages (below 10%, shown in dark purple to black) are concentrated in Manhattan (especially lower and central areas), parts of Staten Island and select neighborhoods in Brooklyn and Queens.
+:::
+```{r}
+#| code-fold: true
+#| warning: false
+#| message: false
+#Percent of Population with Less Than High School Education
+ggplot(nyc_map_acs_joined) +
+  geom_sf(aes(fill = EA_LTHSGrP), color = "white", size = 0.1) +
+  scale_fill_viridis_c(
+    option = "inferno",
+    limits = range(nyc_map_acs_joined$EA_LTHSGrP, na.rm = TRUE),
+    na.value = "grey90"
+  ) +
+  labs(
+    title = "Percent of Population with Less Than High School Education",
+    fill = "% < High School"
+  ) +
+  theme_void(base_size = 14) +
+  theme(
+    plot.title = element_text(face = "bold", size = 12),
+    legend.title = element_text(size = 14),
+    legend.text = element_text(size = 12)
+  )
+```
+::: {.justify style="text-align: justify;"}
+The map below shows clear educational disparities across NYC neighborhoods with highest levels of educational attainment (yellow and orange areas, 60%–100%) are found in Manhattan (especially the Upper West Side, Midtown, and Financial District),parts of Brooklyn,Western parts of Queens and some neighborhoods in Staten Island. Lowest levels (dark purple areas, below 25%) are found in much of the Bronx, eastern Brooklyn and southern Queens where fewer residents hold a bachelor’s degree or higher.
+:::
+```{r}
+#| code-fold: true
+#| warning: false
+#| message: false
+#Percent of Population with Bachelor's Degree or Higher
+ggplot(nyc_map_acs_joined) +
+  geom_sf(aes(fill = EA_BchDHP), color = "white", size = 0.1) +
+  scale_fill_viridis_c(
+    option = "inferno",
+    limits = range(nyc_map_acs_joined$EA_BchDHP, na.rm = TRUE),
+    na.value = "grey90"
+  ) +
+  labs(
+    title = "Percent of Population with Bachelor's Degree or Higher",
+    fill = "% ≥ Bachelor's"
+  ) +
+  theme_void(base_size = 14) +
+  theme(
+    plot.title = element_text(face = "bold", size = 12),
+    legend.title = element_text(size = 14),
+    legend.text = element_text(size = 12)
+  )
+```
+## Initial Exploration of 311 Data
+::: {.justify style="text-align: justify;"}
+The chart reveals that Washington Heights (North and South) recorded the highest number of 311 noise complaints in 2022 with 14,05 and 13,826 complaints, respectively. These are closely followed by Harlem (North) and Hamilton Heights–Sugar Hill, each with over 12,000 complaints. Notably, the majority of the top 10 neighborhoods are located in Manhattan, the Bronx and Brooklyn indicating a geographic concentration of noise-related concerns. 
+:::
+```{r}
+#| code-fold: true
+#| warning: false
+#| message: false
+#Top 10 NYC Neighborhoods by 311 Noise Complaints
+data_311_with_nta |>
+  st_drop_geometry() |>
+  filter(NTAName != "Wakefield-Woodlawn") |>
+  count(BoroName, NTAName, name = "noise_count") |>
+  mutate(NTA_Label = paste0(NTAName, " (", BoroName, ")")) |>
+  arrange(desc(noise_count)) |>
+  slice_head(n = 10) |>
+  mutate(NTA_Label = fct_reorder(NTA_Label, noise_count)) |>
+  ggplot(aes(x = noise_count, y = NTA_Label)) +
+  geom_col(fill = "red") +
+  geom_text(
+    aes(label = scales::comma(noise_count)),
+    hjust = -0.1, size = 3
+  ) +
+  scale_x_continuous(
+    breaks = seq(0, 15000, by = 2000),
+    labels = scales::comma,
+    expand = expansion(mult = c(0, 0.1))
+  ) +
+  labs(
+    title = "Top 10 NYC Neighborhoods by 311 Noise Complaints",
+    x = "Noise Complaint Count",
+    y = NULL,
+    caption = "Source: NYC Open Data"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title = element_text(face = "bold", size = 10),
+    plot.subtitle = element_text(size = 10),
+    plot.caption = element_text(size = 9, hjust = 0),
+    plot.margin = margin(t = 20, r = 10, b = 20, l = 10)
+  )
+```
+::: {.justify style="text-align: justify;"}
+The chart presents the bottom 10 NYC neighborhoods by 311 noise complaints in 2022, each recording fewer than five complaints for the entire year. These neighborhoods include St. John Cemetery, Montefiore Cemetery and Middle Village Cemetery in Queens, as well as institutional or restricted areas such as Rikers Island, John F. Kennedy International Airport and Fort Hamilton. Also featured are parkland zones like Jacob Riis Park–Fort Tilden, Breezy Point Tip and Snug Harbor in Staten Island. The consistently low number of complaints across these areas likely reflects their non-residential or low-population nature, rather than an absence of noise.
+:::
+
+```{r}
+#| code-fold: true
+#| warning: false
+#| message: false
+#Bottom 10 NYC Neighborhoods by 311 Noise Complaints
+bottom_10 <- data_311_with_nta |>
+  st_drop_geometry() |>
+  filter(NTAName != "Wakefield-Woodlawn") |>
+  count(BoroName, NTAName, name = "noise_count") |>
+  mutate(NTA_Label = paste0(NTAName, " (", BoroName, ")")) |>
+  arrange(noise_count) |>
+  slice_head(n = 10) |>
+  mutate(NTA_Label = fct_reorder(NTA_Label, noise_count))
+
+max_count <- max(bottom_10$noise_count, na.rm = TRUE)
+
+# Plot
+ggplot(bottom_10, aes(x = noise_count, y = NTA_Label)) +
+  geom_col(fill = "red") +
+  geom_text(
+    aes(label = comma(noise_count)),
+    hjust = -0.1, size = 3
+  ) +
+  scale_x_continuous(
+    breaks = seq(0, max_count + 250, by = 500),
+    labels = comma,
+    expand = expansion(mult = c(0, 0.2))
+  ) +
+  labs(
+    title = "Bottom 10 NYC Neighborhoods by 311 Noise Complaints",
+    x = "Noise Complaint Count",
+    y = NULL,
+    caption = "Source: NYC Open Data"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title = element_text(face = "bold", size = 9),
+    plot.subtitle = element_text(size = 10),
+    plot.caption = element_text(size = 9, hjust = 0),
+    plot.margin = margin(t = 20, r = 10, b = 20, l = 10)
+  )
+```
+::: {.justify style="text-align: justify;"}
+This boxplot shows the distribution of noise complaints per neighborhood by borough. Manhattan has the highest median and widest range, with several neighborhoods reporting exceptionally high complaint volumes. The Bronx and Brooklyn have moderate medians but many outliers, indicating variability across neighborhoods. Queens and Staten Island show lower medians and more uniform distributions, suggesting fewer complaints overall and less variation. The data highlights Manhattan as the borough with the most consistently high noise complaints.
+:::
+```{r}
+#| code-fold: true
+#| warning: false
+#| message: false
+#Distribution of Noise Complaints per Neighborhood by Borough
+data_311_with_nta |>
+  st_drop_geometry() |>
+  filter(NTAName != "Wakefield-Woodlawn") |>
+  count(BoroName, NTAName, name = "noise_count") |>
+  ggplot(aes(x = BoroName, y = noise_count)) +
+  geom_boxplot(fill = "#fd8d3c", color = "black", outlier.shape = 1) +
+  labs(
+    title = "Distribution of Noise Complaints per Neighborhood by Borough",
+    x = "Borough",
+    y = "Noise Complaint Count",
+    caption = "Source: NYC Open Data, 2022"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    plot.title = element_text(face = "bold", size = 10),
+    plot.subtitle = element_text(size = 11),
+    plot.caption = element_text(size = 9, hjust = 0)
+  )
+```
+::: {.justify style="text-align: justify;"}
+This map illustrates the geographic distribution of 311 noise complaints across NYC neighborhoods. The darkest shades, representing 8,000+ complaints, are concentrated in parts of northern Manhattan, central Brooklyn and the Bronx, indicating noise hotspots. In contrast, Staten Island and southern Queens show much lighter tones, reflecting lower complaint volumes.
+:::
+```{r}
+#| code-fold: true
+#| warning: false
+#| message: false
+#Map of Noise Complaint Distribution
+#Aggregate noise complaints per NTA (excluding Wakefield-Woodlawn)
+noise_by_nta <- data_311_with_nta |>
+  st_drop_geometry() |>
+  filter(NTAName != "Wakefield-Woodlawn") |>
+  count(NTA2020, name = "noise_count")
+
+# Join to NTA shapefile
+nyc_noise_map <- nyc_map |>
+  left_join(noise_by_nta, by = "NTA2020")
+
+# Refined 8-level complaint bands
+nyc_noise_map <- nyc_noise_map |>
+  mutate(
+    noise_band = cut(
+      noise_count,
+      breaks = c(0, 1000, 2000, 3000, 4000, 5000, 6000, 8000, Inf),
+      labels = c(
+        "0–1,000", "1,001–2,000", "2,001–3,000", "3,001–4,000",
+        "4,001–5,000", "5,001–6,000", "6,001–8,000", "8,001+"
+      ),
+      include.lowest = TRUE,
+      right = TRUE
+    )
+  )
+
+# Plot with an orange color scheme
+ggplot(nyc_noise_map) +
+  geom_sf(aes(fill = noise_band), color = "white", size = 0.1) +
+  scale_fill_brewer(
+    palette = "Oranges",
+    name = "Noise Complaints",
+    na.value = "grey90"
+  ) +
+  labs(
+    title = "Distribution of 311 Noise Complaints by NYC Neighborhood",
+    caption = "Source: NYC Open Data"
+  ) +
+  theme_void(base_size = 14) +
+  theme(
+    plot.title = element_text(face = "bold", size = 10),
+    legend.title = element_text(size = 12),
+    legend.text = element_text(size = 10),
+    plot.caption = element_text(size = 9)
+  )
+```
+
+# Bivariate Choropleth and Correlation Analysis
+## Noise Complaints vs. Male Population (%)
+::: {.justify style="text-align: justify;"}
+The bivariate map reveals that light gray areas like some parts of Staten Island and southern Queens combine low noise complaints with a low male population. Steel blue pockets in Manhattan and many parts of Staten Island report few complaints despite higher male percentages. Maroon zones denote neighbourhoods with high noise complaints with fewer men. Many parts of Brooklyn,Manhattan and pockets of Queens fall in this category. Finally, dark purple neighborhoods scattered across Manhattan, parts of the Bronx, Queens and Brooklyn exhibit both high noise complaint volumes and high male population shares.
+:::
+```{r}
+#| code-fold: true
+#| warning: false
+#| message: false
+# Define your custom 2×2 palette
+custom_pal2 <- c(
+  "1-1" = "#d3d3d3",  # low noise, low % male
+  "2-1" = "#9e3547",  # low noise, high % male
+  "1-2" = "#4279b0",  # high noise, low % male
+  "2-2" = "#311e3b"   # high noise, high % male
+)
+
+# Classify into 2x2 quantiles
+final_bivar <- final_data |>
+  filter(!is.na(MaleP), !is.na(noise_count)) |>
+  bi_class(x = noise_count, y = MaleP, style = "quantile", dim = 2)
+
+# Create the bivariate map with custom palette
+bivar_map <- ggplot(final_bivar) +
+  geom_sf(aes(fill = bi_class), color = "white", size = 0.1) +
+  bi_scale_fill(pal = custom_pal2, dim = 2, na.value = "grey90") +
+  labs(
+    title = "Noise Complaints vs. Male Population (%)"
+  ) +
+  theme_void(base_size = 14) +
+  theme(
+    plot.title = element_text(face = "bold", size = 16),
+    legend.position = "none"
+  )
+
+# Create a larger, clearer legend with the same palette
+bivar_legend <- bi_legend(
+  pal = custom_pal2, dim = 2,
+  xlab = "Noise",
+  ylab = "% Male",
+  size = 8
+)
+
+# Combine map and repositioned legend
+final_plot <- bivar_map + inset_element(
+  bivar_legend,
+  left = 0.8,
+  bottom = 0.06,
+  right = 1.5,
+  top = 0.36
+)
+
+# Display the plot
+final_plot
+```
+::: {.justify style="text-align: justify;"}
+The table shows a Pearson correlation coefficient of −0.107 between noise complaints and the percentage of male residents across NYC neighborhoods. This indicates a very weak negative linear relationship—as male population increases, noise complaints slightly decrease but the p-value of 0.117 suggests this finding is not statistically significant at the 0.05 level. Additionally, the 95% confidence interval [−0.238, 0.027] includes zero, reinforcing that there's no reliable evidence of a meaningful linear association between the two variables.
+:::
+
+```{r}
+#| code-fold: true
+#| warning: false
+#| message: false
+final_data |>
+  st_drop_geometry() |>
+  filter(!is.na(noise_count), !is.na(MaleP)) |>
+  summarise(
+    r        = cor.test(noise_count, MaleP, method = "pearson")$estimate,
+    p_value  = cor.test(noise_count, MaleP, method = "pearson")$p.value,
+    CI_lower = cor.test(noise_count, MaleP, method = "pearson")$conf.int[1],
+    CI_upper = cor.test(noise_count, MaleP, method = "pearson")$conf.int[2]
+  ) |>
+  kable(
+    caption = "Pearson Correlation Between Noise Complaints and Male Population (%)",
+    digits = 3,
+    col.names = c("Pearson r", "p-value", "95% CI Lower", "95% CI Upper"),
+    format = "html"
+  ) |>
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed"),
+    full_width = FALSE,
+    position = "center"
+  )
+```
+## Noise Complaints vs. Female Population (%)
+::: {.justify style="text-align: justify;"}
+The map shows that neighborhoods with high noise complaints and high female population (dark purple) are concentrated in parts of Brooklyn and upper Manhattan. Areas with high noise but lower female shares (steel blue) appear more scattered, while low-noise, high-female zones (maroon) are limited. Light gray areas with less noise complaints and fewer female resident are mostly in Staten Island and southeast Queens. Overall, there’s no clear linear pattern, suggesting noise complaints are not strongly tied to female population distribution.
+:::
+
+```{r}
+#| code-fold: true
+#| warning: false
+#| message: false
+# Define custom palette (2x2)
+custom_pal2 <- c(
+  "1-1" = "#d3d3d3",  # low noise, low % female
+  "2-1" = "#9e3547",  # low noise, high % female
+  "1-2" = "#4279b0",  # high noise, low % female
+  "2-2" = "#311e3b"   # high noise, high % female
+)
+
+# Classify into 2x2 quantiles using FemP
+final_bivar_fem <- final_data |>
+  filter(!is.na(FemP), !is.na(noise_count)) |>
+  bi_class(x = noise_count, y = FemP, style = "quantile", dim = 2)
+
+# Create the bivariate map
+bivar_map_fem <- ggplot(final_bivar_fem) +
+  geom_sf(aes(fill = bi_class), color = "white", size = 0.1) +
+  bi_scale_fill(pal = custom_pal2, dim = 2, na.value = "grey90") +
+  labs(
+    title = "Noise Complaints vs. Female Population (%)"
+  ) +
+  theme_void(base_size = 14) +
+  theme(
+    plot.title = element_text(face = "bold", size = 16),
+    legend.position = "none"
+  )
+
+# Create the legend
+bivar_legend_fem <- bi_legend(
+  pal = custom_pal2, dim = 2,
+  xlab = "Noise",
+  ylab = "% Female",
+  size = 8
+)
+
+# Combine map and legend
+final_plot_fem <- bivar_map_fem + inset_element(
+  bivar_legend_fem,
+  left = 0.8,
+  bottom = 0.06,
+  right = 1.5,
+  top = 0.36
+)
+
+# Display the plot
+final_plot_fem
+```
+
+::: {.justify style="text-align: justify;"}
+The Pearson correlation between noise complaints and female population percentage is r = 0.088, indicating a very weak positive linear relationship. However, the p-value = 0.206 means this association is not statistically significant, and the 95% confidence interval [−0.048, 0.22] crosses zero. This suggests there's no meaningful linear association between noise complaints and the proportion of female residents across NYC neighborhoods.
+:::
+
+```{r}
+#| code-fold: true
+#| warning: false
+#| message: false
+final_data |>
+  st_drop_geometry() |>
+  filter(!is.na(noise_count), !is.na(FemP)) |>
+  summarise(
+    r        = cor.test(noise_count, FemP, method = "pearson")$estimate,
+    p_value  = cor.test(noise_count, FemP, method = "pearson")$p.value,
+    CI_lower = cor.test(noise_count, FemP, method = "pearson")$conf.int[1],
+    CI_upper = cor.test(noise_count, FemP, method = "pearson")$conf.int[2]
+  ) |>
+  kable(
+    caption = "Pearson Correlation Between Noise Complaints and Female Population (%)",
+    digits = 3,
+    col.names = c("Pearson r", "p-value", "95% CI Lower", "95% CI Upper"),
+    format = "html"
+  ) |>
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed"),
+    full_width = FALSE,
+    position = "center"
+  )
+```
+
+## Noise Complaints vs. Age
+::: {.justify style="text-align: justify;"}
+The map shows the spatial relationship between noise complaints and median age across NYC neighborhoods. Areas shaded purple indicate both high noise complaint volumes and older populations, while cyan areas represent younger, noisier neighborhoods. Orange areas are quieter with older residents, and grey zones are both younger and quieter. Overall, there’s no strong clustering, suggesting that high noise complaints occur across neighborhoods with varying age profiles.
+:::
+```{r}
+#| code-fold: true
+#| warning: false
+#| message: false
+# Define a more vivid and distinctive 2x2 palette
+custom_pal3 <- c(
+  "1-1" = "#e0e0e0",  # light gray (low-low)
+  "2-1" = "#f8766d",  # bright orange/red (high age, low noise)
+  "1-2" = "#00bfc4",  # sky blue (low age, high noise)
+  "2-2" = "#7e3f98"   # deep purple (high-high)
+)
+
+# Classify into 2x2 quantiles using MdAgeE
+final_bivar_age <- final_data |>
+  filter(!is.na(MdAgeE), !is.na(noise_count)) |>
+  bi_class(x = noise_count, y = MdAgeE, style = "quantile", dim = 2)
+
+# Create the bivariate map
+bivar_map_age <- ggplot(final_bivar_age) +
+  geom_sf(aes(fill = bi_class), color = "white", size = 0.1) +
+  bi_scale_fill(pal = custom_pal3, dim = 2, na.value = "grey90") +
+  labs(
+    title = "Noise Complaints vs. Median Age"
+  ) +
+  theme_void(base_size = 14) +
+  theme(
+    plot.title = element_text(face = "bold", size = 16),
+    legend.position = "none"
+  )
+
+#Create the legend
+bivar_legend_age <- bi_legend(
+  pal = custom_pal3, dim = 2,
+  xlab = "Noise",
+  ylab = "Median Age",
+  size = 8
+)
+
+# Combine map and legend
+final_plot_age <- bivar_map_age + inset_element(
+  bivar_legend_age,
+  left = 0.8,
+  bottom = 0.06,
+  right = 1.5,
+  top = 0.36
+)
+
+#Display the final map
+final_plot_age
+```
+
+
+::: {.justify style="text-align: justify;"}
+The Pearson correlation between noise complaints and median age is r = −0.083, indicating a very weak negative linear association, neighborhoods with older populations tend to have slightly fewer noise complaints. However, this relationship is not statistically significant (p = 0.225), and the 95% confidence interval [−0.215, 0.051] crosses zero. This suggests there is no meaningful or reliable linear relationship between median age and noise complaints across NYC neighborhoods.
+:::
+
+```{r}
+#| code-fold: true
+#| warning: false
+#| message: false
+final_data |>
+  st_drop_geometry() |>
+  filter(!is.na(noise_count), !is.na(MdAgeE)) |>
+  summarise(
+    r        = cor.test(noise_count, MdAgeE, method = "pearson")$estimate,
+    p_value  = cor.test(noise_count, MdAgeE, method = "pearson")$p.value,
+    CI_lower = cor.test(noise_count, MdAgeE, method = "pearson")$conf.int[1],
+    CI_upper = cor.test(noise_count, MdAgeE, method = "pearson")$conf.int[2]
+  ) |>
+  kable(
+    caption = "Pearson Correlation Between Noise Complaints and Median Age",
+    digits = 3,
+    col.names = c("Pearson r", "p-value", "95% CI Lower", "95% CI Upper"),
+    format = "html"
+  ) |>
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed"),
+    full_width = FALSE,
+    position = "center"
+  )
+```
+
+## Noise Complaints vs. Population Below Poverty (%)
+::: {.justify style="text-align: justify;"}
+The map shows how noise complaints relate to neighborhood poverty levels. Areas in purple have both high noise complaints and high poverty rates, especially in parts of the Bronx and Upper Manhattan. Sky blue areas show low poverty but high noise, while orange areas are quieter but have higher poverty. Gray zones reflect lower noise and lower poverty. Overall, there is some clustering of high-poverty, high-noise areas, suggesting a potential overlap between environmental and socioeconomic stressors.
+:::
+
+```{r}
+#| code-fold: true
+#| warning: false
+#| message: false
+# Define a more vivid and distinctive 2x2 palette
+custom_pal3 <- c(
+  "1-1" = "#e0e0e0",  # light gray (low-low)
+  "2-1" = "#f8766d",  # bright orange/red (high poverty, low noise)
+  "1-2" = "#00bfc4",  # sky blue (low poverty, high noise)
+  "2-2" = "#7e3f98"   # deep purple (high-high)
+)
+
+#Classify into 2x2 quantiles using FamBwPvP
+final_bivar_poverty <- final_data |>
+  filter(!is.na(FamBwPvP), !is.na(noise_count)) |>
+  bi_class(x = noise_count, y = FamBwPvP, style = "quantile", dim = 2)
+
+#Create the bivariate map
+bivar_map_poverty <- ggplot(final_bivar_poverty) +
+  geom_sf(aes(fill = bi_class), color = "white", size = 0.1) +
+  bi_scale_fill(pal = custom_pal3, dim = 2, na.value = "grey90") +
+  labs(
+    title = "Noise Complaints vs. Population Below Poverty (%)"
+  ) +
+  theme_void(base_size = 14) +
+  theme(
+    plot.title = element_text(face = "bold", size = 12),
+    legend.position = "none"
+  )
+
+# Create the legend
+bivar_legend_poverty <- bi_legend(
+  pal = custom_pal3, dim = 2,
+  xlab = "Noise",
+  ylab = "Poverty Rate",
+  size = 8
+)
+
+# Combine map and legend
+final_plot_poverty <- bivar_map_poverty + inset_element(
+  bivar_legend_poverty,
+  left = 0.8,
+  bottom = 0.06,
+  right = 1.5,
+  top = 0.36
+)
+
+# Display the final map
+final_plot_poverty
+```
+::: {.justify style="text-align: justify;"}
+The Pearson correlation between noise complaints and the percentage of population below poverty is 0.119, indicating a weak positive relationship. However, the association is not statistically significant (p = 0.096), and the 95% confidence interval (−0.021 to 0.255) includes zero, suggesting no clear evidence of a linear relationship.
+:::
+
+```{r}
+#| code-fold: true
+#| warning: false
+#| message: false
+final_data |>
+  st_drop_geometry() |>
+  filter(!is.na(noise_count), !is.na(FamBwPvP)) |>
+  summarise(
+    r        = cor.test(noise_count, FamBwPvP, method = "pearson")$estimate,
+    p_value  = cor.test(noise_count, FamBwPvP, method = "pearson")$p.value,
+    CI_lower = cor.test(noise_count, FamBwPvP, method = "pearson")$conf.int[1],
+    CI_upper = cor.test(noise_count, FamBwPvP, method = "pearson")$conf.int[2]
+  ) |>
+  kable(
+    caption = "Pearson Correlation Between Noise Complaints and Population Below Poverty (%)",
+    digits = 3,
+    col.names = c("Pearson r", "p-value", "95% CI Lower", "95% CI Upper"),
+    format = "html"
+  ) |>
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed"),
+    full_width = FALSE,
+    position = "center"
+  )
+```
+
+## Noise Complaints vs Median Household Income
+::: {.justify style="text-align: justify;"}
+The bivariate map reveals no strong pattern between noise complaints and median household income across NYC. While some high-income neighborhoods (purple areas) also report high noise complaints, others with similar income levels show low complaint volumes. Likewise, several lower-income areas (teal) exhibit high noise activity. This suggests that noise complaints are distributed across both affluent and less affluent neighborhoods, with no clear linear association between income and complaint frequency.
+:::
+
+```{r}
+#| code-fold: true
+#| warning: false
+#| message: false
+# Define a more vivid and distinctive 2x2 palette
+custom_pal_income <- c(
+  "1-1" = "#e0e0e0",  # light gray (low-low)
+  "2-1" = "#f8766d",  # bright orange/red (high income, low noise)
+  "1-2" = "#00bfc4",  # sky blue (low income, high noise)
+  "2-2" = "#7e3f98"   # deep purple (high-high)
+)
+
+# Classify into 2x2 quantiles using MdHHIncE
+final_bivar_income <- final_data |>
+  filter(!is.na(MdHHIncE), !is.na(noise_count)) |>
+  bi_class(x = noise_count, y = MdHHIncE, style = "quantile", dim = 2)
+
+# Create the bivariate map
+bivar_map_income <- ggplot(final_bivar_income) +
+  geom_sf(aes(fill = bi_class), color = "white", size = 0.1) +
+  bi_scale_fill(pal = custom_pal_income, dim = 2, na.value = "grey90") +
+  labs(
+    title = "Noise Complaints vs. Median Household Income"
+  ) +
+  theme_void(base_size = 14) +
+  theme(
+    plot.title = element_text(face = "bold", size = 16),
+    legend.position = "none"
+  )
+
+# Create the legend
+bivar_legend_income <- bi_legend(
+  pal = custom_pal_income, dim = 2,
+  xlab = "Noise",
+  ylab = "Median Income",
+  size = 8
+)
+
+# Combine map and legend
+final_plot_income <- bivar_map_income + inset_element(
+  bivar_legend_income,
+  left = 0.8,
+  bottom = 0.06,
+  right = 1.5,
+  top = 0.36
+)
+
+# Display the final map
+final_plot_income
+```
+
+::: {.justify style="text-align: justify;"}
+The Pearson correlation between noise complaints and median household income is −0.112, indicating a weak negative relationship. However, the result is not statistically significant (p = 0.106), and the 95% confidence interval (−0.244 to 0.024) includes zero, suggesting no strong evidence of a linear association.
+:::
+```{r}
+#| code-fold: true
+#| warning: false
+#| message: false
+final_data |>
+  st_drop_geometry() |>
+  filter(!is.na(noise_count), !is.na(MdHHIncE)) |>
+  summarise(
+    r        = cor.test(noise_count, MdHHIncE, method = "pearson")$estimate,
+    p_value  = cor.test(noise_count, MdHHIncE, method = "pearson")$p.value,
+    CI_lower = cor.test(noise_count, MdHHIncE, method = "pearson")$conf.int[1],
+    CI_upper = cor.test(noise_count, MdHHIncE, method = "pearson")$conf.int[2]
+  ) |>
+  kable(
+    caption = "Pearson Correlation Between Noise Complaints and Median Household Income",
+    digits = 3,
+    col.names = c("Pearson r", "p-value", "95% CI Lower", "95% CI Upper"),
+    format = "html"
+  ) |>
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed"),
+    full_width = FALSE,
+    position = "center"
+  )
+```
+
+## Noise Complaints vs. Employed Population (%)
+::: {.justify style="text-align: justify;"}
+The map illustrates the spatial relationship between noise complaints and the percentage of employed residents across NYC neighborhoods. Areas shaded deep purple indicate neighborhoods with both high employment rates and high volumes of noise complaints. Conversely, neighborhoods in light gray reflect lower employment and fewer complaints. The mixed distribution of colors suggests no strong visual correlation, highlighting the complexity of how employment levels may or may not influence noise complaint patterns across the city.
+:::
+
+```{r}
+#| code-fold: true
+#| warning: false
+#| message: false
+# Define a more vivid and distinctive 2x2 palette
+custom_pal_employed <- c(
+  "1-1" = "#e0e0e0",  # light gray (low-low)
+  "2-1" = "#f8766d",  # bright orange/red (high employment, low noise)
+  "1-2" = "#00bfc4",  # sky blue (low employment, high noise)
+  "2-2" = "#7e3f98"   # deep purple (high-high)
+)
+
+# Classify into 2x2 quantiles using CvEm16pl1P
+final_bivar_employed <- final_data |>
+  filter(!is.na(CvEm16pl1P), !is.na(noise_count)) |>
+  bi_class(x = noise_count, y = CvEm16pl1P, style = "quantile", dim = 2)
+
+# Create the bivariate map
+bivar_map_employed <- ggplot(final_bivar_employed) +
+  geom_sf(aes(fill = bi_class), color = "white", size = 0.1) +
+  bi_scale_fill(pal = custom_pal_employed, dim = 2, na.value = "grey90") +
+  labs(
+    title = "Noise Complaints vs. Employed Population (%)"
+  ) +
+  theme_void(base_size = 14) +
+  theme(
+    plot.title = element_text(face = "bold", size = 16),
+    legend.position = "none"
+  )
+
+# Create the legend
+bivar_legend_employed <- bi_legend(
+  pal = custom_pal_employed, dim = 2,
+  xlab = "Noise",
+  ylab = "% Employed",
+  size = 8
+)
+
+# Combine map and legend
+final_plot_employed <- bivar_map_employed + inset_element(
+  bivar_legend_employed,
+  left = 0.8,
+  bottom = 0.06,
+  right = 1.5,
+  top = 0.36
+)
+
+# Display the final map
+final_plot_employed
+```
+
+::: {.justify style="text-align: justify;"}
+The correlation between noise complaints and the percentage of employed population is very weak and not statistically significant (r = 0.013, p = 0.849). This suggests no meaningful linear association between employment rate and noise complaints across NYC neighborhoods.
+:::
+
+```{r}
+#| code-fold: true
+#| warning: false
+#| message: false
+final_data |>
+  st_drop_geometry() |>
+  filter(!is.na(noise_count), !is.na(CvEm16pl1P)) |>
+  summarise(
+    r        = cor.test(noise_count, CvEm16pl1P, method = "pearson")$estimate,
+    p_value  = cor.test(noise_count, CvEm16pl1P, method = "pearson")$p.value,
+    CI_lower = cor.test(noise_count, CvEm16pl1P, method = "pearson")$conf.int[1],
+    CI_upper = cor.test(noise_count, CvEm16pl1P, method = "pearson")$conf.int[2]
+  ) |>
+  kable(
+    caption = "Pearson Correlation Between Noise Complaints and Employed Population (%)",
+    digits = 3,
+    col.names = c("Pearson r", "p-value", "95% CI Lower", "95% CI Upper"),
+    format = "html"
+  ) |>
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed"),
+    full_width = FALSE,
+    position = "center"
+  )
+```
+## Noise Complaints vs. Unemployed Population (%)
+::: {.justify style="text-align: justify;"}
+Neighborhoods shown in deep purple have both high unemployment and high noise complaints, notably in the Bronx and parts of Brooklyn. Orange areas (high noise, low unemployment) are dominant in Manhattan and  scattered across parts of Brooklyn and Queens. Blue zones reflect higher unemployment with lower noise complaints, such as parts of the northeast Bronx and central Queens. Light gray areas indicate low levels of both. This pattern suggests no strong spatial alignment between unemployment rates and 311 noise complaint volumes.
+:::
+
+```{r}
+#| code-fold: true
+#| warning: false
+#| message: false
+# Define a new vivid 2x2 palette for unemployment
+custom_pal_unemployed <- c(
+  "1-1" = "#f0f0f0",  # light gray (low-low)
+  "2-1" = "#fdae61",  # warm orange  (low unemployment, high noise)
+  "1-2" = "#2b83ba",  # deep blue (high unemployment, low noise)
+  "2-2" = "#7b3294"   # rich purple (high-high)
+)
+
+# Classify into 2x2 quantiles using CvLFUEm1P
+final_bivar_unemployed <- final_data |>
+  filter(!is.na(CvLFUEm1P), !is.na(noise_count)) |>
+  bi_class(x = noise_count, y = CvLFUEm1P, style = "quantile", dim = 2)
+
+# Create the bivariate map
+bivar_map_unemployed <- ggplot(final_bivar_unemployed) +
+  geom_sf(aes(fill = bi_class), color = "white", size = 0.1) +
+  bi_scale_fill(pal = custom_pal_unemployed, dim = 2, na.value = "grey90") +
+  labs(
+    title = "Noise Complaints vs. Unemployed Population (%)"
+  ) +
+  theme_void(base_size = 14) +
+  theme(
+    plot.title = element_text(face = "bold", size = 13),
+    legend.position = "none"
+  )
+
+# Create the legend
+bivar_legend_unemployed <- bi_legend(
+  pal = custom_pal_unemployed, dim = 2,
+  xlab = "Noise",
+  ylab = "% Unemployed",
+  size = 8
+)
+
+# Combine map and legend
+final_plot_unemployed <- bivar_map_unemployed + inset_element(
+  bivar_legend_unemployed,
+  left = 0.8,
+  bottom = 0.06,
+  right = 1.5,
+  top = 0.36
+)
+
+# Display the final map
+final_plot_unemployed
+```
+::: {.justify style="text-align: justify;"}
+The Pearson correlation between 311 noise complaints and the percentage of unemployed population is 0.081, indicating a very weak positive association. However, the p-value of 0.254 shows that this relationship is not statistically significant, and the 95% confidence interval (−0.058 to 0.217) includes zero, suggesting no clear linear association.
+:::
+```{r}
+#| code-fold: true
+#| warning: false
+#| message: false
+final_data |>
+  st_drop_geometry() |>
+  filter(!is.na(noise_count), !is.na(CvLFUEm1P)) |>
+  summarise(
+    r        = cor.test(noise_count, CvLFUEm1P, method = "pearson")$estimate,
+    p_value  = cor.test(noise_count, CvLFUEm1P, method = "pearson")$p.value,
+    CI_lower = cor.test(noise_count, CvLFUEm1P, method = "pearson")$conf.int[1],
+    CI_upper = cor.test(noise_count, CvLFUEm1P, method = "pearson")$conf.int[2]
+  ) |>
+  kable(
+    caption = "Pearson Correlation Between Noise Complaints and Unemployed Population (%)",
+    digits = 3,
+    col.names = c("Pearson r", "p-value", "95% CI Lower", "95% CI Upper"),
+    format = "html"
+  ) |>
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed"),
+    full_width = FALSE,
+    position = "center"
+  )
+```
+
+## Noise Complaints vs. Owner-Occupied Housing (%)
+::: {.justify style="text-align: justify;"}
+Neighborhoods with high noise complaints and low owner-occupied housing (orange areas) are mainly in the Bronx and parts of Brooklyn, while high ownership and low noise (blue) dominate Staten Island and Queens.
+:::
+```{r}
+#| code-fold: true
+#| warning: false
+#| message: false
+# Define a new vivid 2x2 palette for owner-occupied housing
+custom_pal_owner <- c(
+  "1-1" = "#f0f0f0",  # light gray (low-low)
+  "2-1" = "#fdae61",  # orange (low ownership, high noise)
+  "1-2" = "#4575b4",  # blue (high ownership, low noise)
+  "2-2" = "#7b3294"   # purple (high-high)
+)
+
+# Classify into 2x2 quantiles using OOcHU1P
+final_bivar_owner <- final_data |>
+  filter(!is.na(OOcHU1P), !is.na(noise_count)) |>
+  bi_class(x = noise_count, y = OOcHU1P, style = "quantile", dim = 2)
+
+# Create the bivariate map
+bivar_map_owner <- ggplot(final_bivar_owner) +
+  geom_sf(aes(fill = bi_class), color = "white", size = 0.1) +
+  bi_scale_fill(pal = custom_pal_owner, dim = 2, na.value = "grey90") +
+  labs(
+    title = "Noise Complaints vs. Owner-Occupied Housing (%)"
+  ) +
+  theme_void(base_size = 14) +
+  theme(
+    plot.title = element_text(face = "bold", size = 13),
+    legend.position = "none"
+  )
+
+# Create the legend
+bivar_legend_owner <- bi_legend(
+  pal = custom_pal_owner, dim = 2,
+  xlab = "Noise",
+  ylab = "% Owner-Occupied",
+  size = 8
+)
+
+# Combine map and legend
+final_plot_owner <- bivar_map_owner + inset_element(
+  bivar_legend_owner,
+  left = 0.8,
+  bottom = 0.06,
+  right = 1.5,
+  top = 0.36
+)
+
+# Display the final map
+final_plot_owner
+```
+::: {.justify style="text-align: justify;"}
+There is a statistically significant negative correlation between noise complaints and the percentage of owner-occupied housing (r = -0.199, p = 0.005). This suggests that neighborhoods with more owner-occupied units tend to report fewer noise complaints.
+:::
+
+```{r}
+#| code-fold: true
+#| warning: false
+#| message: false
+final_data |>
+  st_drop_geometry() |>
+  filter(!is.na(noise_count), !is.na(OOcHU1P)) |>
+  summarise(
+    r        = cor.test(noise_count, OOcHU1P, method = "pearson")$estimate,
+    p_value  = cor.test(noise_count, OOcHU1P, method = "pearson")$p.value,
+    CI_lower = cor.test(noise_count, OOcHU1P, method = "pearson")$conf.int[1],
+    CI_upper = cor.test(noise_count, OOcHU1P, method = "pearson")$conf.int[2]
+  ) |>
+  kable(
+    caption = "Pearson Correlation Between Noise Complaints and Owner-Occupied Housing (%)",
+    digits = 3,
+    col.names = c("Pearson r", "p-value", "95% CI Lower", "95% CI Upper"),
+    format = "html"
+  ) |>
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed"),
+    full_width = FALSE,
+    position = "center"
+  )
+```
+
+## Noise Complaints vs. Renter-Occupied Housing (%)
+::: {.justify style="text-align: justify;"}
+The map shows that neighborhoods with high renter-occupied housing rates tend to report more noise complaints, especially in central areas of Manhattan, the Bronx, and Brooklyn (purple). In contrast, low-renter areas with high noise (orange) are scattered, while areas with both low renter rates and low noise (gray) are mostly in less dense regions like Staten Island and parts of Queens. This suggests a strong link between rental housing concentration and noise complaint volume.
+:::
+
+```{r}
+#| code-fold: true
+#| warning: false
+#| message: false
+# Define a vivid 2x2 palette for renter-occupied housing
+custom_pal_renter <- c(
+  "1-1" = "#f0f0f0",  # low-low (light gray)
+  "2-1" = "#fdae61",  # low renter, high noise (orange)
+  "1-2" = "#4575b4",  # high renter, low noise (blue)
+  "2-2" = "#7b3294"   # high-high (purple)
+)
+
+# Classify into 2x2 quantiles using ROcHU1P
+final_bivar_renter <- final_data |>
+  filter(!is.na(ROcHU1P), !is.na(noise_count)) |>
+  bi_class(x = noise_count, y = ROcHU1P, style = "quantile", dim = 2)
+
+# Create the bivariate map
+bivar_map_renter <- ggplot(final_bivar_renter) +
+  geom_sf(aes(fill = bi_class), color = "white", size = 0.1) +
+  bi_scale_fill(pal = custom_pal_renter, dim = 2, na.value = "grey90") +
+  labs(
+    title = "Noise Complaints vs. Renter-Occupied Housing (%)"
+  ) +
+  theme_void(base_size = 14) +
+  theme(
+    plot.title = element_text(face = "bold", size = 13),
+    legend.position = "none"
+  )
+
+# Create the legend
+bivar_legend_renter <- bi_legend(
+  pal = custom_pal_renter, dim = 2,
+  xlab = "Noise",
+  ylab = "% Renter-Occupied",
+  size = 8
+)
+
+# Combine map and legend
+final_plot_renter <- bivar_map_renter + inset_element(
+  bivar_legend_renter,
+  left = 0.8,
+  bottom = 0.06,
+  right = 1.5,
+  top = 0.36
+)
+
+# Display the final map
+final_plot_renter
+```
+::: {.justify style="text-align: justify;"}
+The Pearson correlation between noise complaints and renter-occupied housing is 0.145 with a p-value of 0.038, indicating a weak but statistically significant positive relationship. Neighborhoods with more renter-occupied units tend to report slightly more noise complaints.
+:::
+```{r}
+#| code-fold: true
+#| warning: false
+#| message: false
+final_data |>
+  st_drop_geometry() |>
+  filter(!is.na(noise_count), !is.na(ROcHU1P)) |>
+  summarise(
+    r        = cor.test(noise_count, ROcHU1P, method = "pearson")$estimate,
+    p_value  = cor.test(noise_count, ROcHU1P, method = "pearson")$p.value,
+    CI_lower = cor.test(noise_count, ROcHU1P, method = "pearson")$conf.int[1],
+    CI_upper = cor.test(noise_count, ROcHU1P, method = "pearson")$conf.int[2]
+  ) |>
+  kable(
+    caption = "Pearson Correlation Between Noise Complaints and Renter-Occupied Housing (%)",
+    digits = 3,
+    col.names = c("Pearson r", "p-value", "95% CI Lower", "95% CI Upper"),
+    format = "html"
+  ) |>
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed"),
+    full_width = FALSE,
+    position = "center"
+  )
+```
+## Noise Complaints vs. < HS Education (%)
+::: {.justify style="text-align: justify;"}
+The map shows that neighborhoods with both high noise complaints and high percentages of residents without a high school education (purple) are clustered in the Bronx, upper Manhattan, and central Brooklyn. In contrast, areas with low percentages of residents without a high school education but low noise (grey) appear to dominate in Staten Island.
+:::
+
+```{r}
+#| code-fold: true
+#| warning: false
+#| message: false
+# Define a vivid 2x2 palette for less than high school education
+custom_pal_lths <- c(
+  "1-1" = "#f0f0f0",  # low-low (light gray)
+  "2-1" = "#fdae61",  # low education, high noise (orange)
+  "1-2" = "#4575b4",  # high education gap, low noise (blue)
+  "2-2" = "#7b3294"   # high-high (purple)
+)
+
+# Classify into 2x2 quantiles using EA_LTHSGrP
+final_bivar_lths <- final_data |>
+  filter(!is.na(EA_LTHSGrP), !is.na(noise_count)) |>
+  bi_class(x = noise_count, y = EA_LTHSGrP, style = "quantile", dim = 2)
+
+# Create the bivariate map
+bivar_map_lths <- ggplot(final_bivar_lths) +
+  geom_sf(aes(fill = bi_class), color = "white", size = 0.1) +
+  bi_scale_fill(pal = custom_pal_lths, dim = 2, na.value = "grey90") +
+  labs(
+    title = "Noise Complaints vs. < HS Education (%)"
+  ) +
+  theme_void(base_size = 14) +
+  theme(
+    plot.title = element_text(face = "bold", size = 13),
+    legend.position = "none"
+  )
+
+# Create the legend
+bivar_legend_lths <- bi_legend(
+  pal = custom_pal_lths, dim = 2,
+  xlab = "Noise",
+  ylab = "< HS Education (%)",
+  size = 8
+)
+
+# Combine map and legend
+final_plot_lths <- bivar_map_lths + inset_element(
+  bivar_legend_lths,
+  left = 0.8,
+  bottom = 0.06,
+  right = 1.5,
+  top = 0.36
+)
+
+# Display the final map
+final_plot_lths
+```
+
+::: {.justify style="text-align: justify;"}
+Results from correlation analysis show there is a very weak, non-significant correlation (r = 0.048, p = 0.498) between noise complaints and the percentage of residents without a high school education.
+:::
+
+```{r}
+#| code-fold: true
+#| warning: false
+#| message: false
+final_data |>
+  st_drop_geometry() |>
+  filter(!is.na(noise_count), !is.na(EA_LTHSGrP)) |>
+  summarise(
+    r        = cor.test(noise_count, EA_LTHSGrP, method = "pearson")$estimate,
+    p_value  = cor.test(noise_count, EA_LTHSGrP, method = "pearson")$p.value,
+    CI_lower = cor.test(noise_count, EA_LTHSGrP, method = "pearson")$conf.int[1],
+    CI_upper = cor.test(noise_count, EA_LTHSGrP, method = "pearson")$conf.int[2]
+  ) |>
+  kable(
+    caption = "Pearson Correlation Between Noise Complaints and < HS Education (%)",
+    digits = 3,
+    col.names = c("Pearson r", "p-value", "95% CI Lower", "95% CI Upper"),
+    format = "html"
+  ) |>
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed"),
+    full_width = FALSE,
+    position = "center"
+  )
+```
+## Noise Complaints vs. Bachelor's Degree or Higher (%)
+::: {.justify style="text-align: justify;"}
+The map shows that neighborhoods with both high noise complaints and a high percentage of college-educated residents (purple) are concentrated in Manhattan, northwest Brooklyn, and parts of Queens. Areas with high education but low noise (blue) are more common in Staten Island and outer Queens. This suggests noise complaints are also prevalent in well-educated, densely populated areas.
+:::
+
+```{r}
+#| code-fold: true
+#| warning: false
+#| message: false
+# Define a vivid 2x2 palette for bachelor's degree or higher
+custom_pal_bach <- c(
+  "1-1" = "#f0f0f0",  # low-low (light gray)
+  "2-1" = "#fdae61",  # low education, high noise (orange)
+  "1-2" = "#4575b4",  # high education, low noise (blue)
+  "2-2" = "#7b3294"   # high-high (purple)
+)
+
+# Classify into 2x2 quantiles using EA_BchDHP
+final_bivar_bach <- final_data |>
+  filter(!is.na(EA_BchDHP), !is.na(noise_count)) |>
+  bi_class(x = noise_count, y = EA_BchDHP, style = "quantile", dim = 2)
+
+# Create the bivariate map
+bivar_map_bach <- ggplot(final_bivar_bach) +
+  geom_sf(aes(fill = bi_class), color = "white", size = 0.1) +
+  bi_scale_fill(pal = custom_pal_bach, dim = 2, na.value = "grey90") +
+  labs(
+    title = "Noise Complaints vs. Bachelor's Degree or Higher (%)"
+  ) +
+  theme_void(base_size = 14) +
+  theme(
+    plot.title = element_text(face = "bold", size = 13),
+    legend.position = "none"
+  )
+
+# Create the legend
+bivar_legend_bach <- bi_legend(
+  pal = custom_pal_bach, dim = 2,
+  xlab = "Noise",
+  ylab = "Bachelor's Degree or Higher (%)",
+  size = 8
+)
+
+# Combine map and legend
+final_plot_bach <- bivar_map_bach + inset_element(
+  bivar_legend_bach,
+  left = 0.8,
+  bottom = 0.06,
+  right = 1.5,
+  top = 0.36
+)
+
+# Display the final map
+final_plot_bach
+```
+
+::: {.justify style="text-align: justify;"}
+The results suggest a very weak, non-significant negative correlation (r = -0.034, p = 0.622) between noise complaints and the percentage of residents with a bachelor’s degree or higher.
+:::
+
+```{r}
+#| code-fold: true
+#| warning: false
+#| message: false
+final_data |>
+  st_drop_geometry() |>
+  filter(!is.na(noise_count), !is.na(EA_BchDHP)) |>
+  summarise(
+    r        = cor.test(noise_count, EA_BchDHP, method = "pearson")$estimate,
+    p_value  = cor.test(noise_count, EA_BchDHP, method = "pearson")$p.value,
+    CI_lower = cor.test(noise_count, EA_BchDHP, method = "pearson")$conf.int[1],
+    CI_upper = cor.test(noise_count, EA_BchDHP, method = "pearson")$conf.int[2]
+  ) |>
+  kable(
+    caption = "Pearson Correlation Between Noise Complaints and Bachelor's Degree or Higher (%)",
+    digits = 3,
+    col.names = c("Pearson r", "p-value", "95% CI Lower", "95% CI Upper"),
+    format = "html"
+  ) |>
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed"),
+    full_width = FALSE,
+    position = "center"
+  )
+```
+
+# Conclusion
+
+# References
+
+
