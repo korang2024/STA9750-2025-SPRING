@@ -1,5 +1,5 @@
 ---
-title: "Noise in the Neighborhoods: A Socioeconomic Analysis of 311 Complaints in NYC"
+title: "Noise in the Neighborhoods: A Socioeconomic Analysis of 311 Noise Complaints in NYC"
 format:
   html:
     toc: true
@@ -7,6 +7,26 @@ format:
     toc-title: "On this page"
     css: styles.css
 ---
+
+# Executive Summary
+::: {.justify style="text-align: justify;"}
+This study investigates how neighborhood-level socioeconomic characteristics are associated with the volume of 311 noise complaints across New York City. Using 2022 noise complaint data and American Community Survey estimates, the analysis combined spatial mapping, bivariate choropleth visualization and Pearson correlation to examine patterns across New York City. The results reveal that housing tenure, specifically rates of owner-occupied and renter-occupied housing shows some level of linear association with noise complaints. Other variables such as income, education, gender, age, poverty and employment showed no statistically significant relationships. These findings suggest that neighborhood housing composition plays a key role in noise reporting behavior or exposure while other socioeconomic dimensions may have more limited influence.
+:::
+
+# Highlights of Results
+::: {.justify style="text-align: justify;"}
+🗺 Noise Complaints Across NYC: High volumes (8,000+ complaints) were concentrated in upper Manhattan, central Brooklyn and the Bronx, identifying key noise hotspots.
+
+🌿 Lower Complaint Areas: Staten Island and southern Queens recorded relatively low noise complaint volumes.
+
+🏠 Owner-Occupied Housing:Significant negative correlation with noise complaints (r = -0.199, p = 0.005).Neighborhoods with more owner-occupied units reported fewer complaints.
+
+🏢 Renter-Occupied Housing:Significant positive correlation (r = 0.145, p = 0.038). Areas with more renter-occupied housing reported slightly more complaints.
+
+📊 Other Socioeconomic Factors:Variables including gender, education, income, employment, age and poverty showed no significant correlation with noise complaints.
+
+🧭 Key Insight: Housing characteristics emerged as a predictor of neighborhood noise complaint patterns in NYC.
+:::
 
 ```{r}
 #| code-fold: true
@@ -35,7 +55,7 @@ library(biscale)
 ::: {.justify style="text-align: justify;"}
 There are many types of pollution that affect the environment including land degradation, air pollution, water pollution and noise pollution. Among these, noise pollution is often overlooked as a serious environmental issue with greater attention typically being paid to other sources of pollution. However, exposure to excessive noise has been linked to a range of health issues such as hearing loss, sleep deprivation and elevated stress levels. For example, Ma et al. (2018) revealed that in China, many middle-aged individuals suffer from mental health disorders while some older adults report sleep disturbances due to noise exposure. Psychological effects can also include impaired cognitive functioning, discomfort and increased social isolation (Hemmat, 2023).
 
-Noise pollution does not only affect humans, it can also disrupt wildlife ecosystems in ways that hinder social and reproductive activities (Seker et al.). Bats for instance, have shown reduced foraging and drinking behaviors when exposed to noise (Domer et al., 2021), and reef fish display behavioral changes in polluted coastal regions (Leduc et al., 2021). Even plant life can experience harmful ecological effects from noise as highlighted by Phillips et al. (2021).
+Noise pollution does not only affect humans, it can also disrupt wildlife ecosystems in ways that hinder social and reproductive activities (Seker et al.,2022). Bats for instance, have shown reduced foraging and drinking behaviors when exposed to noise (Domer et al., 2021), and reef fish display behavioral changes in polluted coastal regions (Leduc et al., 2021). Even plant life can experience harmful ecological effects from noise as highlighted by Phillips et al. (2021).
 Influenced by social factors and personal disturbance, individuals or communities often respond to excessive noise by filing complaints (Zambon et al., 2020). Several studies have investigated variations in noise complaints, especially during the COVID-19 pandemic. While Yildirim and Arefi (2021) reported a decrease in complaints during this period, others such as Ramphal et al. (2022) and Trudeau et al. (2023) noted an increase. Lee and Jeong (2021), for instance, found that noise complaints on social media, particularly Twitter, doubled during lockdowns compared to the previous year. Ramphal et al. (2022) investigated the pattern of noise complaints in New York between 2010 and 2021 and revealed that noise complaints were higher in low-income communities. These mixed findings suggest that patterns of noise complaints may be influenced by a range of contextual factors, including geographic location, socioeconomic status, policing activity, local incidents such as shootings and temporal dynamics.
 
 As awareness of the harmful effects of noise pollution grows, so too has the number of complaints filed by residents. In 2024, noise complaints were the most common 311 non-emergency issue in New York City, with over 700,000 reports filed. On average, the city received more than 2,000 noise-related calls per day, underscoring its prominence as a public concern. While previous studies have examined noise complaints in relation to specific events such as the COVID-19 pandemic or focused on general temporal trends, few have systematically investigated how socioeconomic characteristics influence the spatial distribution of these complaints at the neighborhood level especially in New York City. This report addresses this gap by exploring the relationship between socioeconomic factors and the frequency of 311 noise complaints in New York City neighborhoods. The central research question guiding this study is: How are socioeconomic factors associated with the frequency and spatial distribution of noise complaints across NYC neighborhoods?
@@ -1553,7 +1573,42 @@ final_data |>
 ```
 
 # Conclusion
+::: {.justify style="text-align: justify;"}
+This study explored the relationship between neighborhood-level socioeconomic factors and 311 noise complaints in New York City. The findings show that housing characteristics, particularly homeownership and rental rates, were significantly associated with noise complaints. Neighborhoods with more owner-occupied housing reported fewer complaints while renter-dominated areas reported slightly more. Other socioeconomic variables, such as income, education, employment, gender and age showed no significant associations, indicating a limited role in explaining noise patterns. However, the study is limited by its reliance on self-reported complaint data, potential underreporting, and the use of aggregated neighborhood-level data, which may obscure finer spatial variation. It also does not account for temporal trends or contextual factors such as land use and policing. Future work should incorporate multivariate or spatial regression models to control for overlapping influences and examine temporal dynamics, finer spatial units, and built environment characteristics to better understand the drivers of urban noise complaints.
+:::
 
 # References
+::: {.justify style="text-align: justify;"}
+Casey, J. A., Morello-Frosch, R., Mennitt, D. J., Fristrup, K., Ogburn, E. L., & James, P. (2017). Race/ethnicity, socioeconomic status, residential segregation, and spatial variation in noise exposure in the contiguous United States. Environmental health perspectives, 125(7), 077017.
 
+Collins, T. W., Nadybal, S., & Grineski, S. E. (2020). Sonic injustice: Disparate residential exposures to transport noise from road and aviation sources in the continental United States. Journal of Transport Geography, 82, 102604.
+
+Dale, L. M., Goudreau, S., Perron, S., Ragettli, M. S., Hatzopoulou, M., & Smargiassi, A. (2015). Socioeconomic status and environmental noise exposure in Montreal, Canada. BMC public health, 15, 1-8.
+
+Domer, A., Korine, C., Slack, M., Rojas, I., Mathieu, D., Mayo, A., & Russo, D. (2021). Adverse effects of noise pollution on foraging and drinking behaviour of insectivorous desert bats. Mammalian Biology, 101(4), 497-501.
+
+Hemmat, W., Hesam, A. M., & Atifnigar, H. (2023). Exploring noise pollution, causes, effects, and mitigation strategies: a review paper. European Journal of Theoretical and Applied Sciences, 1(5), 995-1005.
+
+Leduc, A. O., Nunes, J. A. C., de Araújo, C. B., Quadros, A. L., Barros, F., Oliveira, H. H., ... & Slabbekoorn, H. (2021). Land-based noise pollution impairs reef fish behavior: a case study with a Brazilian carnival. Biological Conservation, 253, 108910.
+
+Lee, P. J., & Jeong, J. H. (2021). Attitudes towards outdoor and neighbour noise during the COVID-19 lockdown: A case study in London. Sustainable Cities and Society, 67, 102768.
+
+Ma, J., Li, C., Kwan, M. P., & Chai, Y. (2018). A multilevel analysis of perceived noise pollution, geographic contexts and mental health in Beijing. International journal of environmental research and public health, 15(7), 1479.
+
+Phillips, J. N., Termondt, S. E., & Francis, C. D. (2021). Long-term noise pollution affects seedling recruitment and community composition, with negative effects persisting after removal. Proceedings of the Royal Society B, 288(1948), 20202906.
+
+Ramphal, B., Dworkin, J. D., Pagliaccio, D., & Margolis, A. E. (2022). Noise complaint patterns in New York City from January 2010 through February 2021: Socioeconomic disparities and COVID-19 exacerbations. Environmental research, 206, 112254.
+
+Teff-Seker, Y., Berger-Tal, O., Lehnardt, Y., & Teschner, N. (2022). Noise pollution from wind turbines and its effects on wildlife: A cross-national analysis of current policies and planning regulations. Renewable and Sustainable Energy Reviews, 168, 112801.
+
+Tong, H., & Kang, J. (2021). Relationships between noise complaints and socio-economic factors in England. Sustainable Cities and Society, 65, 102573.
+
+Trudeau, C., Tarlao, C., & Guastavino, C. (2023). Montreal soundscapes during the COVID-19 pandemic: A spatial analysis of noise complaints and residents’ surveys. Noise Mapping, 10(1), 20220169.
+
+Yildirim, Y., & Arefi, M. (2021). Noise complaints during a pandemic: A longitudinal analysis. Noise Mapping, 8(1), 108-115.
+
+Zambon, G., Muchetti, S. S., Salvi, D., Angelini, F., Brambilla, G., & Benocci, R. (2020, September). Analysis of noise annoyance complaints in the city of Milan, Italy. In Journal of Physics: Conference Series (Vol. 1603, No. 1, p. 012029). IOP Publishing.
+
+Zhang, Y., Kwan, M. P., & Ma, H. (2024). Sensing noise exposure and its inequality based on noise complaint data through vision-language hybrid method. Applied Geography, 171, 103369.
+:::
 
